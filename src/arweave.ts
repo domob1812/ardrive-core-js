@@ -30,6 +30,7 @@ import {
 	setBundleUploaderObject
 } from './db_update';
 import { getDriveFromDriveTable } from './db_get';
+import { generateMnemonic, getKeyFromMnemonic } from 'arweave-mnemonic-keys';
 import { readContract } from 'smartweave';
 import Arweave from 'arweave';
 import deepHash from 'arweave/node/lib/deepHash';
@@ -67,6 +68,16 @@ const generateWallet = async (): Promise<Wallet> => {
 	const walletPublicKey = await getAddressForWallet(walletPrivateKey);
 	return { walletPrivateKey, walletPublicKey };
 };
+
+// Creates a new Arweave wallet JWK using the Arweave Mnemonics package
+export async function generateMnemonicWallet(): Promise<Wallet> {
+	const mnemonic: string = await generateMnemonic();
+	console.log('Your Arweave Wallet Mnemonic is a 12 word representation of your key file.');
+	console.log('Please write this down and keep it safe.  If needed, it can be used to recover this Arweave Wallet');
+	const walletPrivateKey = await getKeyFromMnemonic(mnemonic);
+	const walletPublicKey = await getAddressForWallet(walletPrivateKey);
+	return { walletPrivateKey, walletPublicKey };
+}
 
 // Imports an existing wallet as a JWK from a user's local harddrive
 const getLocalWallet = async (
@@ -1345,8 +1356,12 @@ const createArDrivePrivateMetaDataTransaction = async (
 // Create a wallet and return the key and address
 const createArDriveWallet = async (): Promise<Wallet> => {
 	try {
-		const wallet = await generateWallet();
-		// TODO: logging is useless we need to store this somewhere.  It is stored in the database - Phil
+		// Generate an Arweave wallet using a randomly generated 12 word seed phrase
+		const wallet = await generateMnemonicWallet();
+
+		// Generate an Arweave wallet using the standard Arweave.js
+		// const wallet = await generateWallet();
+
 		console.log('SUCCESS! Your new wallet public address is %s', wallet.walletPublicKey);
 		return wallet;
 	} catch (err) {
