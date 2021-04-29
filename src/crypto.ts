@@ -22,6 +22,7 @@ export async function getArweaveWalletSigningKey(jwk: JWK, data: Uint8Array): Pr
 		padding: crypto.constants.RSA_PKCS1_PSS_PADDING,
 		saltLength: 0 // We do not need to salt the signature since we combine with a random UUID
 	});
+	console.log('PKCS PAdding: ', crypto.constants.RSA_PKCS1_PSS_PADDING);
 	return signature;
 }
 
