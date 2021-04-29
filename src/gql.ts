@@ -19,8 +19,9 @@ export const desktopAppName = 'ArDrive-Desktop';
 export const webAppName = 'ArDrive-Web';
 export const appVersion = '0.1.0';
 
-// Uses GraphQl to pull necessary drive information from another user's Shared Public Drives
-export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.ArFSDriveEntity | string> {
+// Gets the latest version of a drive entity
+// Need to add optional owner
+export async function getDriveEntity(driveId: string): Promise<types.ArFSDriveEntity | string> {
 	const graphQLURL = primaryGraphQLURL;
 	const drive: types.ArFSDriveEntity = {
 		appName: '',
@@ -28,13 +29,14 @@ export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.Ar
 		arFS: '',
 		cipher: '',
 		cipherIV: '',
-		contentType: 'application/json',
+		contentType: '',
 		driveId,
-		drivePrivacy: 'public',
+		drivePrivacy: '',
 		driveAuthMode: '',
-		entityType: 'drive',
+		entityType: '',
 		name: '',
 		rootFolderId: '',
+		txId: '',
 		unixTime: 0
 	};
 	try {
@@ -42,7 +44,7 @@ export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.Ar
 		const query = {
 			query: `query {
       transactions(
-        first: 100
+        first: 1
         sort: HEIGHT_ASC
         tags: [
           { name: "Drive-Id", values: "${driveId}" }
@@ -65,8 +67,7 @@ export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.Ar
 		const { data } = response.data;
 		const { transactions } = data;
 		const { edges } = transactions;
-
-		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+		edges.forEach((edge: types.GQLEdgeInterface) => {
 			// Iterate through each tag and pull out each drive ID as well the drives privacy status
 			const { node } = edge;
 			const { tags } = node;
@@ -80,36 +81,37 @@ export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.Ar
 					case 'App-Version':
 						drive.appVersion = value;
 						break;
-					case 'Unix-Time':
-						drive.unixTime = +value;
-						break;
 					case 'ArFS':
 						drive.arFS = value;
 						break;
+					case 'Cipher':
+						drive.cipher = value;
+						break;
+					case 'Cipher-IV':
+						drive.cipherIV = value;
+						break;
+					case 'Content-Type':
+						drive.contentType = value;
+						break;
+					case 'Drive-Auth-Mode':
+						drive.driveAuthMode = value;
+						break;
+					case 'Drive-Id':
+						drive.driveId = value;
+						break;
 					case 'Drive-Privacy':
 						drive.drivePrivacy = value;
+						break;
+					case 'Unix-Time':
+						drive.unixTime = +value;
 						break;
 					default:
 						break;
 				}
 			});
 
-			// We cannot add this drive if it is private
-			if (drive.drivePrivacy === 'private') {
-				return 'Skipped';
-			}
-
-			// Download the File's Metadata using the metadata transaction ID
-			console.log('Shared Drive Metadata tx id: ', node.id);
+			// Get the drives transaction ID
 			drive.txId = node.id;
-			const data = await getTransactionData(node.id);
-			const dataString = Utf8ArrayToStr(data);
-			const dataJSON = await JSON.parse(dataString);
-
-			// Get the drive name and root folder id
-			drive.name = dataJSON.name;
-			drive.rootFolderId = dataJSON.rootFolderId;
-			return 'Found';
 		});
 		return drive;
 	} catch (err) {
@@ -119,123 +121,22 @@ export async function gqlGetSharedPublicDrive(driveId: string): Promise<types.Ar
 	}
 }
 
-// Gets the root folder transaction ID for a Public Drive
-export async function gqlGetPublicDriveRootFolderTxId(driveId: string, folderId: string): Promise<string> {
-	const graphQLURL = primaryGraphQLURL;
-	let metaDataTxId = '0';
-	try {
-		const query = {
-			query: `query {
-      transactions(
-        first: 1
-        sort: HEIGHT_ASC
-        tags: [
-          { name: "Drive-Id", values: "${driveId}" }
-          { name: "Folder-Id", values: "${folderId}"}
-        ]
-      ) {
-        edges {
-          node {
-            id
-          }
-        }
-      }
-    }`
-		};
-		const response = await arweave.api.request().post(graphQLURL, query);
-		const { data } = response.data;
-		const { transactions } = data;
-		const { edges } = transactions;
-		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
-			const { node } = edge;
-			metaDataTxId = node.id;
-		});
-		return metaDataTxId;
-	} catch (err) {
-		console.log(err);
-		console.log('CORE GQL ERROR: Cannot get Shared Public Drive');
-		return 'CORE GQL ERROR: Cannot get public drive root folder txId';
-	}
-}
-
-// Gets the root folder ID for a Private Drive and includes the Cipher and IV
-// OLD
-export async function getPrivateDriveRootFolderTxId(
-	driveId: string,
-	folderId: string
-): Promise<types.ArFSRootFolderMetaData> {
-	const graphQLURL = primaryGraphQLURL;
-	let rootFolderMetaData: types.ArFSRootFolderMetaData = {
-		metaDataTxId: '0',
-		cipher: '',
-		cipherIV: ''
-	};
-	try {
-		const query = {
-			query: `query {
-      transactions(
-        first: 1
-        sort: HEIGHT_ASC
-        tags: [
-          { name: "Drive-Id", values: "${driveId}" }
-          { name: "Folder-Id", values: "${folderId}"}
-        ]
-      ) {
-        edges {
-          node {
-            id
-            tags {
-              name
-              value
-            }
-          }
-        }
-      }
-    }`
-		};
-		const response = await arweave.api.post(graphQLURL, query);
-		const { data } = response.data;
-		const { transactions } = data;
-		const { edges } = transactions;
-		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
-			const { node } = edge;
-			const { tags } = node;
-			rootFolderMetaData.metaDataTxId = node.id;
-			tags.forEach((tag: types.GQLTagInterface) => {
-				const key = tag.name;
-				const { value } = tag;
-				switch (key) {
-					case 'Cipher':
-						rootFolderMetaData.cipher = value;
-						break;
-					case 'Cipher-IV':
-						rootFolderMetaData.cipherIV = value;
-						break;
-				}
-			});
-		});
-		return rootFolderMetaData;
-	} catch (err) {
-		console.log(err);
-		console.log('Error querying GQL for personal private drive root folder id, trying again.');
-		rootFolderMetaData = await getPrivateDriveRootFolderTxId(driveId, folderId);
-		return rootFolderMetaData;
-	}
-}
-
-// Gets the root folder ID for a Private Drive and includes the Cipher and IV
-export async function gqlGetFolderEntity(owner: string, folderId: string): Promise<types.ArFSFolderEntity | string> {
+// Gets the latest version of a folder entity
+export async function getFolderEntity(owner: string, folderId: string): Promise<types.ArFSFolderEntity | string> {
 	const graphQLURL = primaryGraphQLURL;
 	const folder: types.ArFSFolderEntity = {
 		appName: '',
 		appVersion: '',
 		arFS: '',
+		cipher: '',
+		cipherIV: '',
 		contentType: '',
 		driveId: '',
 		entityType: 'folder',
 		folderId: '',
 		name: '',
 		parentFolderId: '',
+		txId: '',
 		unixTime: 0
 	};
 	try {
@@ -320,7 +221,7 @@ export async function gqlGetFolderEntity(owner: string, folderId: string): Promi
 
 // Gets all of the drive entities for a users wallet
 // Uses the Entity type to only search for Drive tags.  Can filter on public or private drives
-export async function gqlGetAllDriveEntities(
+export async function getAllDriveEntities(
 	owner: string,
 	lastBlockHeight: number,
 	drivePrivacy: string // must be "public" or "private"
@@ -380,6 +281,7 @@ export async function gqlGetAllDriveEntities(
 				entityType: 'drive',
 				name: '',
 				rootFolderId: '',
+				txId: '',
 				unixTime: 0
 			};
 			// Iterate through each tag and pull out each drive ID as well the drives privacy status
@@ -435,7 +337,7 @@ export async function gqlGetAllDriveEntities(
 }
 
 // Gets all of the folder entity metadata transactions from a user's wallet, filtered by owner and drive ID
-export async function gqlGetAllFolderEntities(
+export async function getAllFolderEntities(
 	owner: string,
 	driveId: string,
 	lastBlockHeight: number
@@ -578,7 +480,7 @@ export async function gqlGetAllFolderEntities(
 }
 
 // Gets all of the file entity metadata transactions from a user's wallet, filtered by owner and drive ID
-export async function gqlGetAllFileEntities(
+export async function getAllFileEntities(
 	owner: string,
 	driveId: string,
 	lastBlockHeight: number
@@ -724,7 +626,7 @@ export async function gqlGetAllFileEntities(
 }
 
 // Gets the the tags for a file entity data transaction
-export async function gqlGetFileEntityData(txid: string): Promise<types.ArFSFileEntityData | string> {
+export async function getFileEntityData(txid: string): Promise<types.ArFSFileEntityData | string> {
 	let graphQLURL = primaryGraphQLURL;
 	const fileData: types.ArFSFileEntityData = {
 		appName: '',
@@ -903,6 +805,71 @@ export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSD
 		console.log(err);
 		console.log('Error getting Shared Public Drive');
 		return drive;
+	}
+}
+
+// Gets the root folder ID for a Private Drive and includes the Cipher and IV
+// OLD
+export async function getPrivateDriveRootFolderTxId(
+	driveId: string,
+	folderId: string
+): Promise<types.ArFSRootFolderMetaData> {
+	const graphQLURL = primaryGraphQLURL;
+	let rootFolderMetaData: types.ArFSRootFolderMetaData = {
+		metaDataTxId: '0',
+		cipher: '',
+		cipherIV: ''
+	};
+	try {
+		const query = {
+			query: `query {
+      transactions(
+        first: 1
+        sort: HEIGHT_ASC
+        tags: [
+          { name: "Drive-Id", values: "${driveId}" }
+          { name: "Folder-Id", values: "${folderId}"}
+        ]
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+          }
+        }
+      }
+    }`
+		};
+		const response = await arweave.api.post(graphQLURL, query);
+		const { data } = response.data;
+		const { transactions } = data;
+		const { edges } = transactions;
+		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+			const { node } = edge;
+			const { tags } = node;
+			rootFolderMetaData.metaDataTxId = node.id;
+			tags.forEach((tag: types.GQLTagInterface) => {
+				const key = tag.name;
+				const { value } = tag;
+				switch (key) {
+					case 'Cipher':
+						rootFolderMetaData.cipher = value;
+						break;
+					case 'Cipher-IV':
+						rootFolderMetaData.cipherIV = value;
+						break;
+				}
+			});
+		});
+		return rootFolderMetaData;
+	} catch (err) {
+		console.log(err);
+		console.log('Error querying GQL for personal private drive root folder id, trying again.');
+		rootFolderMetaData = await getPrivateDriveRootFolderTxId(driveId, folderId);
+		return rootFolderMetaData;
 	}
 }
 

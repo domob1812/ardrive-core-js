@@ -164,8 +164,8 @@ export interface ArFSDriveEntity {
 	appName: string; // The app that has submitted this entity
 	appVersion: string; // The app version that has submitted this entity
 	arFS: string; // 0.11
-	cipher?: string; // AES-256-GCM
-	cipherIV?: string; // <12 byte initialization vector as base 64>
+	cipher: string; // AES-256-GCM
+	cipherIV: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <application/json | application/octet-stream>
 	driveAuthMode?: string; // password
 	driveId: string; // <uuid>
@@ -173,7 +173,7 @@ export interface ArFSDriveEntity {
 	entityType: string; // drive
 	name: string; // <user defined drive name>
 	rootFolderId: string; // <uuid of the drive root folder>
-	txId?: string; // <arweave transaction id>
+	txId: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>
 }
 
@@ -183,15 +183,15 @@ export interface ArFSFolderEntity {
 	appName: string; // The app that has submitted this entity
 	appVersion: string; // The app version that has submitted this entity
 	arFS: string; // 0.11
-	cipher?: string; // AES-256-GCM
-	cipherIV?: string; // <12 byte initialization vector as base 64>
+	cipher: string; // AES-256-GCM
+	cipherIV: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <application/json | application/octet-stream>
 	driveId: string; // <uuid>
 	entityType: string; // folder
 	folderId: string; // <uuid>
 	name: string; // <user defined folder name>
 	parentFolderId: string; // <parent folder uuid>
-	txId?: string; // <arweave transaction id>
+	txId: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>
 }
 
