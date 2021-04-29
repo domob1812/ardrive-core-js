@@ -161,6 +161,8 @@ export default interface GQLResultInterface {
 // When creating a Drive, a corresponding folder must be created as well. This folder will act as the Drive Root Folder.
 // This seperation of drive and folder entity enables features such as folder view queries.
 export interface ArFSDriveEntity {
+	appName: string; // The app that has submitted this entity
+	appVersion: string; // The app version that has submitted this entity
 	arFS: string; // 0.11
 	cipher?: string; // AES-256-GCM
 	cipherIV?: string; // <12 byte initialization vector as base 64>
@@ -171,20 +173,25 @@ export interface ArFSDriveEntity {
 	entityType: string; // drive
 	name: string; // <user defined drive name>
 	rootFolderId: string; // <uuid of the drive root folder>
+	txId?: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>
 }
 
 // A Folder is a logical grouping of other folders and files. Folder entity metadata transactions without a parent folder id are considered the Drive Root Folder of their corresponding Drives. All other Folder entities must have a parent folder id.
 // Since folders do not have underlying data, there is no Folder data transaction required.
 export interface ArFSFolderEntity {
+	appName: string; // The app that has submitted this entity
+	appVersion: string; // The app version that has submitted this entity
 	arFS: string; // 0.11
 	cipher?: string; // AES-256-GCM
 	cipherIV?: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <application/json | application/octet-stream>
+	driveId: string; // <uuid>
 	entityType: string; // folder
 	folderId: string; // <uuid>
 	name: string; // <user defined folder name>
 	parentFolderId: string; // <parent folder uuid>
+	txId?: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>
 }
 
@@ -192,25 +199,33 @@ export interface ArFSFolderEntity {
 // The File metadata transaction JSON references the File data transaction for retrieval.
 // This separation allows for file metadata to be updated without requiring the file data to be reuploaded.
 export interface ArFSFileEntity {
+	appName: string;
+	appVersion: string;
 	arFS: string; // 0.11
 	cipher?: string; // AES-256-GCM
 	cipherIV?: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <12 byte initialization vector as base 64>
+	dataContentType: string; // <the mime type of the data associated with this file entity>
+	dataTxId?: string; // <arweave transaction id of underlying data for this transaction>
+	driveId: string; // <uuid>
 	entityType: string; // file
 	fileId: string; // <uuid>
 	name: string; // <user defined file name with extension eg. happyBirthday.jpg>
 	parentFolderId: string; // <parent folder uuid>
 	size: number; // <computed file size - int>
 	lastModifiedDate: number; // <timestamp for OS reported time of file's last modified date represented as milliseconds since unix epoch - int>
-	dataTxId: string; // <transaction id of stored data>
-	dataContentType: string; // <the mime type of the data associated with this file entity>
+	txId?: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>
 }
 
 // File entity metadata transactions do not include the actual File data they represent.
 // Instead, the File data must be uploaded as a separate transaction, called the File data transaction.
-export interface ArFSFileData {
+export interface ArFSFileEntityData {
+	appName: string; // The app that has submitted this entity
+	appVersion: string; // The app version that has submitted this entity
 	cipher?: string; // AES-256-GCM
 	cipherIV?: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <12 byte initialization vector as base 64>
+	txId?: string; // <arweave transaction id>
+	unixTime: number; // <seconds since unix epoch>
 }
