@@ -1,6 +1,4 @@
-import * as fs from 'fs';
 import { JWKInterface } from 'arweave/node/lib/wallet';
-import { appName, appVersion, arFSVersion, weightedRandom } from './common';
 import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData, Wallet } from './types';
 import { readContract } from 'smartweave';
 import Arweave from 'arweave';
@@ -10,13 +8,16 @@ import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
 import Transaction from 'arweave/node/lib/transaction';
 
+const appName = 'ArDrive-Desktop';
+const appVersion = '0.1.0';
+const arFSVersion = '0.11';
+
 // ArDrive Profit Sharing Community Smart Contract
 const communityTxId = '-8A6RexFkpfWwuyVO98wzSFZh0d6VJuI-buTJvlwOJQ';
 
 // Initialize Arweave
 const arweave = Arweave.init({
 	host: 'arweave.net', // Arweave Gateway
-	//host: 'arweave.dev', // Arweave Dev Gateway
 	port: 443,
 	protocol: 'https',
 	timeout: 600000
@@ -35,15 +36,6 @@ const arBundles = ArweaveBundles(deps);
 // Gets a public key for a given JWK
 export async function getAddressForWallet(walletPrivateKey: JWKInterface): Promise<string> {
 	return arweave.wallets.jwkToAddress(walletPrivateKey);
-}
-
-// Imports an existing wallet as a JWK from a user's local harddrive
-export async function getLocalWallet(
-	existingWalletPath: string
-): Promise<{ walletPrivateKey: JWKInterface; walletPublicKey: string }> {
-	const walletPrivateKey: JWKInterface = JSON.parse(fs.readFileSync(existingWalletPath).toString());
-	const walletPublicKey = await getAddressForWallet(walletPrivateKey);
-	return { walletPrivateKey, walletPublicKey };
 }
 
 // Get the balance of an Arweave wallet
@@ -125,7 +117,7 @@ export async function prepareArFSDriveTransaction(
 
 	// Tag file with ArFS Tags
 	transaction.addTag('App-Name', appName);
-	transaction.addTag('App-Version', appVersion);
+	transaction.addTag('App-Version', driveMetaData.appVersion);
 	transaction.addTag('Unix-Time', driveMetaData.unixTime.toString());
 	transaction.addTag('Drive-Id', driveMetaData.driveId);
 	transaction.addTag('Drive-Privacy', driveMetaData.drivePrivacy);
@@ -140,7 +132,7 @@ export async function prepareArFSDriveTransaction(
 		// Tag file with public tags only
 		transaction.addTag('Content-Type', 'application/json');
 	}
-	transaction.addTag('ArFS', arFSVersion);
+	transaction.addTag('ArFS', driveMetaData.arFS);
 	transaction.addTag('Entity-Type', 'drive');
 
 	// Sign file
@@ -450,4 +442,32 @@ export async function selectTokenHolder(): Promise<string | undefined> {
 	// Get a random holder based off of the weighted list of holders
 	const randomHolder = weightedRandom(weighted);
 	return randomHolder;
+}
+
+// Gets the Arweave price in USD.  Taken from coingecko
+// Update to also include Limestone api
+export async function getArUSDPrice(): Promise<number> {
+	let usdPrice = 0;
+	try {
+		const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=arweave&vs_currencies=usd');
+		usdPrice = (await res.clone().json()).arweave.usd;
+		return usdPrice;
+	} catch (err) {
+		console.log('Error getting AR/USD price from Coingecko');
+		return 0;
+	}
+}
+
+// Used by the selectWeightedRanom function to determine who receives a tip
+function weightedRandom(dict: Record<string, number>): string | undefined {
+	let sum = 0;
+	const r = Math.random();
+
+	for (const addr of Object.keys(dict)) {
+		sum += dict[addr];
+		if (r <= sum && dict[addr] > 0) {
+			return addr;
+		}
+	}
+	return;
 }

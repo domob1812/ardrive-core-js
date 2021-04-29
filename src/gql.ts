@@ -1,4 +1,3 @@
-import * as common from './common';
 import * as types from './types';
 import { getTransactionData } from './arweave';
 import { deriveDriveKey, driveDecrypt } from './crypto';
@@ -12,16 +11,22 @@ const arweave = Arweave.init({
 	timeout: 600000
 });
 
-// Our primary GQL url
-const graphQLURL = common.gatewayURL.concat('graphql');
+// Primary and Backup GraphQL endpoints
+export const primaryGraphQLURL = 'https://arweave.net/graphql';
+export const backupGraphQLURL = 'https://arweave.dev/graphql';
+
+export const desktopAppName = 'ArDrive-Desktop';
+export const webAppName = 'ArDrive-Web';
+export const appVersion = '0.1.0';
 
 // Uses GraphQl to pull necessary drive information from another user's Shared Public Drives
 export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSDriveMetaData> {
+	const graphQLURL = primaryGraphQLURL;
 	const drive: types.ArFSDriveMetaData = {
 		id: 0,
 		login: '',
-		appName: common.appName,
-		appVersion: common.appVersion,
+		appName: desktopAppName,
+		appVersion: appVersion,
 		driveName: '',
 		rootFolderId: '',
 		cipher: '',
@@ -63,7 +68,8 @@ export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSD
 		const { data } = response.data;
 		const { transactions } = data;
 		const { edges } = transactions;
-		await common.asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+
+		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
 			// Iterate through each tag and pull out each drive ID as well the drives privacy status
 			const { node } = edge;
 			const { tags } = node;
@@ -101,7 +107,7 @@ export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSD
 			console.log('Shared Drive Metadata tx id: ', drive.metaDataTxId);
 			drive.metaDataSyncStatus = 3;
 			const data = await getTransactionData(drive.metaDataTxId);
-			const dataString = await common.Utf8ArrayToStr(data);
+			const dataString = Utf8ArrayToStr(data);
 			const dataJSON = await JSON.parse(dataString);
 
 			// Get the drive name and root folder id
@@ -119,6 +125,7 @@ export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSD
 
 // Gets the root folder ID for a Public Drive
 export async function getPublicDriveRootFolderTxId(driveId: string, folderId: string): Promise<string> {
+	const graphQLURL = primaryGraphQLURL;
 	let metaDataTxId = '0';
 	try {
 		const query = {
@@ -127,7 +134,6 @@ export async function getPublicDriveRootFolderTxId(driveId: string, folderId: st
         first: 1
         sort: HEIGHT_ASC
         tags: [
-          { name: "ArFS", values: "${common.arFSVersion}" }
           { name: "Drive-Id", values: "${driveId}" }
           { name: "Folder-Id", values: "${folderId}"}
         ]
@@ -144,7 +150,7 @@ export async function getPublicDriveRootFolderTxId(driveId: string, folderId: st
 		const { data } = response.data;
 		const { transactions } = data;
 		const { edges } = transactions;
-		await common.asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
 			const { node } = edge;
 			metaDataTxId = node.id;
 		});
@@ -162,6 +168,7 @@ export async function getPrivateDriveRootFolderTxId(
 	driveId: string,
 	folderId: string
 ): Promise<types.ArFSRootFolderMetaData> {
+	const graphQLURL = primaryGraphQLURL;
 	let rootFolderMetaData: types.ArFSRootFolderMetaData = {
 		metaDataTxId: '0',
 		cipher: '',
@@ -174,7 +181,6 @@ export async function getPrivateDriveRootFolderTxId(
         first: 1
         sort: HEIGHT_ASC
         tags: [
-          { name: "ArFS", values: "${common.arFSVersion}" }
           { name: "Drive-Id", values: "${driveId}" }
           { name: "Folder-Id", values: "${folderId}"}
         ]
@@ -195,7 +201,7 @@ export async function getPrivateDriveRootFolderTxId(
 		const { data } = response.data;
 		const { transactions } = data;
 		const { edges } = transactions;
-		await common.asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
 			const { node } = edge;
 			const { tags } = node;
 			rootFolderMetaData.metaDataTxId = node.id;
@@ -228,6 +234,7 @@ export async function getAllMyPublicArDriveIds(
 	walletPublicKey: string,
 	lastBlockHeight: number
 ): Promise<types.ArFSDriveMetaData[]> {
+	const graphQLURL = primaryGraphQLURL;
 	const allPublicDrives: types.ArFSDriveMetaData[] = [];
 	try {
 		// Search last 5 blocks minimum
@@ -243,7 +250,7 @@ export async function getAllMyPublicArDriveIds(
 				first: 100
 				owners: ["${walletPublicKey}"]
 				tags: [
-					{ name: "App-Name", values: ["${common.appName}", "${common.webAppName}"] }
+					{ name: "App-Name", values: ["${desktopAppName}", "${webAppName}"] }
 					{ name: "Entity-Type", values: "drive" }
 					{ name: "Drive-Privacy", values: "public" }]) 
 				{
@@ -267,7 +274,7 @@ export async function getAllMyPublicArDriveIds(
 		const { edges } = transactions;
 
 		// Iterate through each returned transaction and pull out the private drive IDs
-		await common.asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+		await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
 			const { node } = edge;
 			const { tags } = node;
 			const drive: types.ArFSDriveMetaData = {
@@ -322,7 +329,7 @@ export async function getAllMyPublicArDriveIds(
 
 			// Download the File's Metadata using the metadata transaction ID
 			const data = await getTransactionData(drive.metaDataTxId);
-			const dataString = await common.Utf8ArrayToStr(data);
+			const dataString = Utf8ArrayToStr(data);
 			const dataJSON = await JSON.parse(dataString);
 
 			// Get the drive name and root folder id
@@ -345,6 +352,7 @@ export async function getAllMyPrivateArDriveIds(
 	user: types.ArDriveUser,
 	lastBlockHeight: number
 ): Promise<types.ArFSDriveMetaData[]> {
+	const graphQLURL = primaryGraphQLURL;
 	const allPrivateDrives: types.ArFSDriveMetaData[] = [];
 
 	// Search last 5 blocks minimum
@@ -359,7 +367,6 @@ export async function getAllMyPrivateArDriveIds(
       first: 100
       owners: ["${user.walletPublicKey}"]
       tags: [
-        { name: "ArFS", values: "${common.arFSVersion}" }
         { name: "Entity-Type", values: "drive" }
         { name: "Drive-Privacy", values: "private" }
       ]
@@ -390,7 +397,7 @@ export async function getAllMyPrivateArDriveIds(
 	const { edges } = transactions;
 
 	// Iterate through each returned transaction and pull out the private drive IDs
-	await common.asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
+	await asyncForEach(edges, async (edge: types.GQLEdgeInterface) => {
 		const { node } = edge;
 		const { tags } = node;
 		const drive: types.ArFSDriveMetaData = {
@@ -458,7 +465,7 @@ export async function getAllMyPrivateArDriveIds(
 			// Since this is a private drive, we must decrypt the JSON data
 			const driveKey: Buffer = await deriveDriveKey(user.dataProtectionKey, drive.driveId, user.walletPrivateKey);
 			const decryptedDriveBuffer: Buffer = await driveDecrypt(drive.cipherIV, driveKey, dataBuffer);
-			const decryptedDriveString: string = await common.Utf8ArrayToStr(decryptedDriveBuffer);
+			const decryptedDriveString: string = Utf8ArrayToStr(decryptedDriveBuffer);
 			const decryptedDriveJSON = await JSON.parse(decryptedDriveString);
 
 			// Get the drive name and root folder id
@@ -486,8 +493,7 @@ export async function getAllMyDataFileTxs(
 	let hasNextPage = true;
 	let cursor = '';
 	let edges: types.GQLEdgeInterface[] = [];
-	let primaryGraphQLURL = graphQLURL;
-	const backupGraphQLURL = graphQLURL.replace('.net', '.dev');
+	let graphQLURL = primaryGraphQLURL;
 	let tries = 0;
 
 	// Search last 5 blocks minimum
@@ -502,7 +508,7 @@ export async function getAllMyDataFileTxs(
         block: {min: ${lastBlockHeight}}
         owners: ["${walletPublicKey}"]
         tags: [
-          { name: "App-Name", values: ["${common.appName}", "${common.webAppName}"]}
+          { name: "App-Name", values: ["${desktopAppName}", "${webAppName}"]}
           { name: "Drive-Id", values: "${driveId}" }
           { name: "Entity-Type", values: ["file", "folder"]}
         ]
@@ -532,7 +538,7 @@ export async function getAllMyDataFileTxs(
 
 		// Call the Arweave gateway
 		try {
-			const response = await arweave.api.post(primaryGraphQLURL, query);
+			const response = await arweave.api.post(graphQLURL, query);
 			const { data } = response.data;
 			const { transactions } = data;
 			if (transactions.edges && transactions.edges.length) {
@@ -551,12 +557,12 @@ export async function getAllMyDataFileTxs(
 				);
 			} else {
 				tries = 0;
-				if (primaryGraphQLURL.includes('.dev')) {
+				if (graphQLURL === backupGraphQLURL) {
 					console.log('Backup gateway is having issues, switching to primary.');
-					primaryGraphQLURL = graphQLURL; // Set back to primary and try 5 times
+					graphQLURL = primaryGraphQLURL; // Set back to primary and try 5 times
 				} else {
 					console.log('Primary gateway is having issues, switching to backup.');
-					primaryGraphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
+					graphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
 				}
 			}
 		}
@@ -572,8 +578,7 @@ export async function getAllMySharedDataFileTxs(
 	let hasNextPage = true;
 	let cursor = '';
 	let edges: types.GQLEdgeInterface[] = [];
-	let primaryGraphQLURL = graphQLURL;
-	const backupGraphQLURL = graphQLURL.replace('.net', '.dev');
+	let graphQLURL = primaryGraphQLURL;
 	let tries = 0;
 
 	// Search last 5 blocks minimum
@@ -587,7 +592,7 @@ export async function getAllMySharedDataFileTxs(
       transactions(
         block: {min: ${lastBlockHeight}}
         tags: [
-          { name: "App-Name", values: ["${common.appName}", "${common.webAppName}"]}
+          { name: "App-Name", values: ["${desktopAppName}", "${webAppName}"]}
           { name: "Drive-Id", values: "${driveId}" }
           { name: "Entity-Type", values: ["file", "folder"]}
         ]
@@ -617,7 +622,7 @@ export async function getAllMySharedDataFileTxs(
 
 		// Call the Arweave gateway
 		try {
-			const response = await arweave.api.post(primaryGraphQLURL, query);
+			const response = await arweave.api.post(graphQLURL, query);
 			const { data } = response.data;
 			const { transactions } = data;
 			if (transactions.edges && transactions.edges.length) {
@@ -636,12 +641,12 @@ export async function getAllMySharedDataFileTxs(
 				);
 			} else {
 				tries = 0;
-				if (primaryGraphQLURL.includes('.dev')) {
+				if (graphQLURL === backupGraphQLURL) {
 					console.log('Backup gateway is having issues, switching to primary.');
-					primaryGraphQLURL = graphQLURL; // Set back to primary and try 5 times
+					graphQLURL = primaryGraphQLURL; // Set back to primary and try 5 times
 				} else {
 					console.log('Primary gateway is having issues, switching to backup.');
-					primaryGraphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
+					graphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
 				}
 			}
 		}
@@ -651,8 +656,7 @@ export async function getAllMySharedDataFileTxs(
 
 // Gets the CipherIV tag of a private data transaction
 export async function getPrivateTransactionCipherIV(txid: string): Promise<string> {
-	let primaryGraphQLURL = graphQLURL;
-	const backupGraphQLURL = graphQLURL.replace('.net', '.dev');
+	let graphQLURL = primaryGraphQLURL;
 	let tries = 0;
 	let dataCipherIV = '';
 	const query = {
@@ -674,7 +678,7 @@ export async function getPrivateTransactionCipherIV(txid: string): Promise<strin
 	while (tries < 10) {
 		try {
 			// Call the Arweave Graphql Endpoint
-			const response = await arweave.api.request().post(primaryGraphQLURL, query);
+			const response = await arweave.api.request().post(graphQLURL, query);
 			const { data } = response.data;
 			const { transactions } = data;
 			const { edges } = transactions;
@@ -700,9 +704,57 @@ export async function getPrivateTransactionCipherIV(txid: string): Promise<strin
 			} else {
 				tries += 1;
 				console.log('Primary gateway is having issues, switching to backup and trying again');
-				primaryGraphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
+				graphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
 			}
 		}
 	}
 	return 'Error';
+}
+
+// Asyncronous ForEach function
+async function asyncForEach(array: any[], callback: any): Promise<string> {
+	for (let index = 0; index < array.length; index += 1) {
+		// eslint-disable-next-line no-await-in-loop
+		await callback(array[index], index, array);
+	}
+	return 'Done';
+}
+
+// Converts a UTF8Array to a string
+function Utf8ArrayToStr(array: any): string {
+	let out, i, c;
+	let char2, char3;
+
+	out = '';
+	const len = array.length;
+	i = 0;
+	while (i < len) {
+		c = array[i++];
+		switch (c >> 4) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				// 0xxxxxxx
+				out += String.fromCharCode(c);
+				break;
+			case 12:
+			case 13:
+				// 110x xxxx   10xx xxxx
+				char2 = array[i++];
+				out += String.fromCharCode(((c & 0x1f) << 6) | (char2 & 0x3f));
+				break;
+			case 14:
+				// 1110 xxxx  10xx xxxx  10xx xxxx
+				char2 = array[i++];
+				char3 = array[i++];
+				out += String.fromCharCode(((c & 0x0f) << 12) | ((char2 & 0x3f) << 6) | ((char3 & 0x3f) << 0));
+				break;
+		}
+	}
+	return out;
 }
