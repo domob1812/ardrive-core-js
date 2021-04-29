@@ -39,7 +39,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageDependencies": [
             ["@types/chai", "npm:4.2.15"],
             ["@types/jwk-to-pem", "npm:2.0.0"],
-            ["@types/mime-types", "npm:2.1.0"],
             ["@types/mocha", "npm:8.2.1"],
             ["@types/node", "npm:14.14.35"],
             ["@types/node-fetch", "npm:2.5.10"],
@@ -58,7 +57,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["husky", "npm:4.3.8"],
             ["jwk-to-pem", "npm:2.0.4"],
             ["lint-staged", "npm:10.5.4"],
-            ["mime-types", "npm:2.1.29"],
             ["mocha", "npm:8.3.2"],
             ["node-fetch", "npm:2.6.1"],
             ["prettier", "npm:2.2.1"],
@@ -212,15 +210,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
           "packageLocation": "./.yarn/cache/@types-jwk-to-pem-npm-2.0.0-85a9aabd67-647e62d347.zip/node_modules/@types/jwk-to-pem/",
           "packageDependencies": [
             ["@types/jwk-to-pem", "npm:2.0.0"]
-          ],
-          "linkType": "HARD",
-        }]
-      ]],
-      ["@types/mime-types", [
-        ["npm:2.1.0", {
-          "packageLocation": "./.yarn/cache/@types-mime-types-npm-2.1.0-33f410f277-26915c3601.zip/node_modules/@types/mime-types/",
-          "packageDependencies": [
-            ["@types/mime-types", "npm:2.1.0"]
           ],
           "linkType": "HARD",
         }]
@@ -649,7 +638,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["ardrive-core-js", "workspace:."],
             ["@types/chai", "npm:4.2.15"],
             ["@types/jwk-to-pem", "npm:2.0.0"],
-            ["@types/mime-types", "npm:2.1.0"],
             ["@types/mocha", "npm:8.2.1"],
             ["@types/node", "npm:14.14.35"],
             ["@types/node-fetch", "npm:2.5.10"],
@@ -668,7 +656,6 @@ function $$SETUP_STATE(hydrateRuntimeState, basePath) {
             ["husky", "npm:4.3.8"],
             ["jwk-to-pem", "npm:2.0.4"],
             ["lint-staged", "npm:10.5.4"],
-            ["mime-types", "npm:2.1.29"],
             ["mocha", "npm:8.3.2"],
             ["node-fetch", "npm:2.6.1"],
             ["prettier", "npm:2.2.1"],
