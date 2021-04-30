@@ -2,11 +2,14 @@
 import * as arweave from './arweave';
 import * as fs from 'fs';
 import * as types from './types';
-import { fileEncrypt, deriveDriveKey, deriveFileKey, getFileAndEncrypt, driveEncrypt } from './crypto';
+import * as gql from './gql';
+import * as crypto from './crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
 import Transaction from 'arweave/node/lib/transaction';
+import { JWK } from 'jwk-to-pem';
+import { JWKInterface } from 'arweave/node/lib/wallet';
 
 export const prodAppUrl = 'https://app.ardrive.io';
 export const stagingAppUrl = 'https://staging.ardrive.io';
@@ -17,6 +20,109 @@ export const appName = 'ArDrive-Desktop';
 export const appVersion = '0.1.0';
 export const arFSVersion = '0.11';
 export const cipher = 'AES256-GCM';
+
+// Gets an ArFS Drive entity from GQL and then downloads the data JSON and decrypts if private (requires drive key)
+export async function arfsGetDrive(driveId: string, driveKey?: Buffer): Promise<types.ArFSDriveEntity | string> {
+	const drive = await gql.getDriveEntity(driveId);
+	if (typeof drive === 'string') {
+		// There was an error
+		return drive;
+	} else {
+		// Get the data JSON for this drive transaction
+		const data = await arweave.getTransactionData(drive.txId);
+
+		if (drive.cipher !== '' && driveKey !== undefined) {
+			// Private drive
+			const dataBuffer = Buffer.from(data);
+			const decryptedDataBuffer: Buffer = await crypto.driveDecrypt(drive.cipherIV, driveKey, dataBuffer);
+			const decryptedDataString: string = Utf8ArrayToStr(decryptedDataBuffer);
+			const driveJSON = await JSON.parse(decryptedDataString);
+			drive.name = driveJSON.name;
+			drive.rootFolderId = driveJSON.rootFolderId;
+		} else {
+			const dataString = Utf8ArrayToStr(data);
+			const driveJSON = await JSON.parse(dataString);
+			drive.name = driveJSON.name;
+			drive.rootFolderId = driveJSON.rootFolderId;
+		}
+		return drive;
+	}
+}
+
+// Gets an ArFS Folder entity from GQL and then downloads the data JSON and decrypts if private (requires drive key)
+export async function arfsGetFolder(
+	owner: string,
+	folderId: string,
+	driveKey?: Buffer
+): Promise<types.ArFSFolderEntity | string> {
+	const folder = await gql.getFolderEntity(owner, folderId);
+	if (typeof folder === 'string') {
+		// There was an error
+		return folder;
+	} else {
+		// Get the data JSON for this drive transaction
+		const data = await arweave.getTransactionData(folder.txId);
+
+		if (folder.cipher !== '' && driveKey !== undefined) {
+			// Private folder
+			// Decrypt the JSON data using the drive key
+			const dataBuffer = Buffer.from(data);
+			const fileKey: Buffer = await crypto.deriveFileKey(folderId, driveKey);
+			const decryptedDataBuffer: Buffer = await crypto.fileDecrypt(folder.cipherIV, fileKey, dataBuffer);
+			const decryptedDataString: string = Utf8ArrayToStr(decryptedDataBuffer);
+			const folderJSON = await JSON.parse(decryptedDataString);
+			folder.name = folderJSON.name;
+		} else {
+			const dataString = Utf8ArrayToStr(data);
+			const folderJSON = await JSON.parse(dataString);
+			folder.name = folderJSON.name;
+		}
+		return folder;
+	}
+}
+
+// Tags and creates a new data item (ANS-102) to be bundled and uploaded
+export async function arfsNewFileDataItem(
+	fileMetaData: types.ArFSFileEntity,
+	fileData: Buffer,
+	walletPrivateKey: JWKInterface,
+	driveKey?: Buffer
+): Promise<{ fileMetaData: types.ArFSFileEntity; dataItem: DataItemJson } | string> {
+	let dataItem: DataItemJson | null;
+	try {
+		if (fileMetaData.cipher !== '' && driveKey !== undefined) {
+			// Private file, so it must be encrypted
+			console.log('Encrypting and bundling %s (%d bytes) to the Permaweb', fileMetaData.name, fileMetaData.size);
+
+			// Derive the keys needed for encryption
+			const fileKey: Buffer = await crypto.deriveFileKey(fileMetaData.fileId, driveKey);
+
+			// Get the encrypted version of the file
+			const encryptedData: types.ArFSEncryptedData = await crypto.fileEncrypt(fileKey, fileData);
+
+			// Set the private file metadata
+			fileMetaData.cipherIV = encryptedData.cipherIV;
+			fileMetaData.cipher = encryptedData.cipher;
+
+			// Get a signed data item for the encrypted data
+			dataItem = await arweave.arfsPrepareDataItemTransaction(encryptedData.data, fileMetaData, walletPrivateKey);
+		} else {
+			console.log('Bundling %s (%d bytes) to the Permaweb', fileMetaData.name, fileMetaData.size);
+			dataItem = await arweave.arfsPrepareDataItemTransaction(fileData, fileMetaData, walletPrivateKey);
+		}
+		if (dataItem != null) {
+			console.log('SUCCESS %s data item was created with TX %s', fileMetaData.name, dataItem.id);
+
+			return { fileMetaData, dataItem };
+		} else {
+			return 'Error bundling file data item';
+		}
+	} catch (err) {
+		console.log(err);
+		console.log('Error bundling file data item');
+		return 'Error bundling file data item';
+	}
+}
 
 // Tags and creates a new data item (ANS-102) to be bundled and uploaded
 export async function newArFSFileDataItem(
@@ -35,15 +141,15 @@ export async function newArFSFileDataItem(
 			);
 
 			// Derive the keys needed for encryption
-			const driveKey: Buffer = await deriveDriveKey(
+			const driveKey: Buffer = await crypto.deriveDriveKey(
 				user.dataProtectionKey,
 				fileMetaData.driveId,
 				user.walletPrivateKey
 			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
+			const fileKey: Buffer = await crypto.deriveFileKey(fileMetaData.fileId, driveKey);
 
 			// Get the encrypted version of the file
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(fileKey, fileData);
+			const encryptedData: types.ArFSEncryptedData = await crypto.fileEncrypt(fileKey, fileData);
 
 			// Set the private file metadata
 			fileMetaData.dataCipherIV;
@@ -104,13 +210,13 @@ export async function newArFSFileMetaDataItem(
 			dataItem = await arweave.prepareArFSMetaDataItemTransaction(user, fileMetaData, secondaryFileMetaDataJSON);
 		} else {
 			// Private file, so it must be encrypted
-			const driveKey: Buffer = await deriveDriveKey(
+			const driveKey: Buffer = await crypto.deriveDriveKey(
 				user.dataProtectionKey,
 				fileMetaData.driveId,
 				user.walletPrivateKey
 			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
+			const fileKey: Buffer = await crypto.deriveFileKey(fileMetaData.fileId, driveKey);
+			const encryptedData: types.ArFSEncryptedData = await crypto.fileEncrypt(
 				fileKey,
 				Buffer.from(secondaryFileMetaDataJSON)
 			);
@@ -152,15 +258,18 @@ export async function newArFSFileData(
 				fileMetaData.fileSize
 			);
 			// Derive the drive and file keys in order to encrypt it with ArFS encryption
-			const driveKey: Buffer = await deriveDriveKey(
+			const driveKey: Buffer = await crypto.deriveDriveKey(
 				user.dataProtectionKey,
 				fileMetaData.driveId,
 				user.walletPrivateKey
 			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
+			const fileKey: Buffer = await crypto.deriveFileKey(fileMetaData.fileId, driveKey);
 
 			// Encrypt the data with the file key
-			const encryptedData: types.ArFSEncryptedData = await getFileAndEncrypt(fileKey, fileMetaData.filePath);
+			const encryptedData: types.ArFSEncryptedData = await crypto.getFileAndEncrypt(
+				fileKey,
+				fileMetaData.filePath
+			);
 
 			// Update the file metadata
 			fileMetaData.dataCipherIV = encryptedData.cipherIV;
@@ -225,13 +334,13 @@ export async function newArFSFileMetaData(
 		} else {
 			// Private file, so the metadata must be encrypted
 			// Get the drive and file key needed for encryption
-			const driveKey: Buffer = await deriveDriveKey(
+			const driveKey: Buffer = await crypto.deriveDriveKey(
 				user.dataProtectionKey,
 				fileMetaData.driveId,
 				user.walletPrivateKey
 			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
+			const fileKey: Buffer = await crypto.deriveFileKey(fileMetaData.fileId, driveKey);
+			const encryptedData: types.ArFSEncryptedData = await crypto.fileEncrypt(
 				fileKey,
 				Buffer.from(secondaryFileMetaDataJSON)
 			);
@@ -274,7 +383,7 @@ export async function newArFSDriveMetaData(
 		// Check if the drive is public or private
 		if (driveMetaData.drivePrivacy === 'private') {
 			console.log('Creating a new Private Drive (name: %s) on the Permaweb', driveMetaData.driveName);
-			const driveKey: Buffer = await deriveDriveKey(
+			const driveKey: Buffer = await crypto.deriveDriveKey(
 				user.dataProtectionKey,
 				driveMetaData.driveId,
 				user.walletPrivateKey
@@ -441,12 +550,12 @@ export async function createArFSPrivateFileSharingLink(
 ): Promise<string> {
 	let fileSharingUrl = '';
 	try {
-		const driveKey: Buffer = await deriveDriveKey(
+		const driveKey: Buffer = await crypto.deriveDriveKey(
 			user.dataProtectionKey,
 			fileToShare.driveId,
 			user.walletPrivateKey
 		);
-		const fileKey: Buffer = await deriveFileKey(fileToShare.fileId, driveKey);
+		const fileKey: Buffer = await crypto.deriveFileKey(fileToShare.fileId, driveKey);
 		fileSharingUrl = stagingAppUrl.concat(
 			'/#/file/',
 			fileToShare.fileId,
@@ -485,4 +594,43 @@ export async function createArFSPublicDriveSharingLink(driveToShare: types.ArFSD
 		driveSharingUrl = 'Error';
 	}
 	return driveSharingUrl;
+}
+
+// Converts a UTF8Array to a string
+function Utf8ArrayToStr(array: any): string {
+	let out, i, c;
+	let char2, char3;
+
+	out = '';
+	const len = array.length;
+	i = 0;
+	while (i < len) {
+		c = array[i++];
+		switch (c >> 4) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				// 0xxxxxxx
+				out += String.fromCharCode(c);
+				break;
+			case 12:
+			case 13:
+				// 110x xxxx   10xx xxxx
+				char2 = array[i++];
+				out += String.fromCharCode(((c & 0x1f) << 6) | (char2 & 0x3f));
+				break;
+			case 14:
+				// 1110 xxxx  10xx xxxx  10xx xxxx
+				char2 = array[i++];
+				char3 = array[i++];
+				out += String.fromCharCode(((c & 0x0f) << 12) | ((char2 & 0x3f) << 6) | ((char3 & 0x3f) << 0));
+				break;
+		}
+	}
+	return out;
 }

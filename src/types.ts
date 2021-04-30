@@ -202,8 +202,8 @@ export interface ArFSFileEntity {
 	appName: string;
 	appVersion: string;
 	arFS: string; // 0.11
-	cipher?: string; // AES-256-GCM
-	cipherIV?: string; // <12 byte initialization vector as base 64>
+	cipher: string; // AES-256-GCM
+	cipherIV: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <12 byte initialization vector as base 64>
 	dataContentType: string; // <the mime type of the data associated with this file entity>
 	dataTxId?: string; // <arweave transaction id of underlying data for this transaction>
