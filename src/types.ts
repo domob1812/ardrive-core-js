@@ -167,7 +167,7 @@ export interface ArFSDriveEntity {
 	cipher: string; // AES-256-GCM
 	cipherIV: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <application/json | application/octet-stream>
-	driveAuthMode?: string; // password
+	driveAuthMode: string; // password
 	driveId: string; // <uuid>
 	drivePrivacy: string; // <public | private>
 	entityType: string; // drive
@@ -223,8 +223,8 @@ export interface ArFSFileEntity {
 export interface ArFSFileEntityData {
 	appName: string; // The app that has submitted this entity
 	appVersion: string; // The app version that has submitted this entity
-	cipher?: string; // AES-256-GCM
-	cipherIV?: string; // <12 byte initialization vector as base 64>
+	cipher: string; // AES-256-GCM
+	cipherIV: string; // <12 byte initialization vector as base 64>
 	contentType: string; // <12 byte initialization vector as base 64>
 	txId?: string; // <arweave transaction id>
 	unixTime: number; // <seconds since unix epoch>

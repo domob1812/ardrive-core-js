@@ -397,13 +397,16 @@ export async function getAllFolderEntities(
 					appName: '',
 					appVersion: '',
 					arFS: '',
+					cipher: '',
+					cipherIV: '',
 					contentType: '',
 					driveId: '',
 					entityType: 'folder',
 					folderId: '',
 					name: '',
 					parentFolderId: '',
-					unixTime: 0
+					unixTime: 0,
+					txId: ''
 				};
 				cursor = edge.cursor;
 				const { node } = edge;
@@ -540,6 +543,8 @@ export async function getAllFileEntities(
 					appName: '',
 					appVersion: '',
 					arFS: '',
+					cipher: '',
+					cipherIV: '',
 					contentType: '',
 					dataContentType: '',
 					driveId: '',
@@ -549,6 +554,7 @@ export async function getAllFileEntities(
 					name: '',
 					parentFolderId: '',
 					size: 0,
+					txId: '',
 					unixTime: 0
 				};
 				cursor = edge.cursor;
@@ -631,6 +637,8 @@ export async function getFileEntityData(txid: string): Promise<types.ArFSFileEnt
 	const fileData: types.ArFSFileEntityData = {
 		appName: '',
 		appVersion: '',
+		cipher: '',
+		cipherIV: '',
 		contentType: '',
 		unixTime: 0
 	};
