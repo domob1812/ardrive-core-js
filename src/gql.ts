@@ -491,7 +491,7 @@ export async function getAllFileEntities(
 	let hasNextPage = true;
 	let cursor = '';
 	let graphQLURL = primaryGraphQLURL;
-	const allFiles: types.ArFSFileEntity[] = [];
+	const allFileEntities: types.ArFSFileEntity[] = [];
 	let tries = 0;
 
 	// Search last 5 blocks minimum
@@ -601,7 +601,7 @@ export async function getAllFileEntities(
 				});
 				// Capture the TX of the file metadata tx
 				file.txId = node.id;
-				allFiles.push(file);
+				allFileEntities.push(file);
 			});
 		} catch (err) {
 			console.log(err);
@@ -627,7 +627,7 @@ export async function getAllFileEntities(
 	if (tries === 0) {
 		return 'CORE GQL ERROR: Cannot get file ids';
 	} else {
-		return allFiles;
+		return allFileEntities;
 	}
 }
 
@@ -709,6 +709,111 @@ export async function getFileEntityData(txid: string): Promise<types.ArFSFileEnt
 		}
 	}
 	return 'CORE GQL ERROR: Cannot get file entity data';
+}
+
+// Gets the CipherIV tag of a private data transaction
+export async function getPrivateTransactionCipherIV(txid: string): Promise<string> {
+	let graphQLURL = primaryGraphQLURL;
+	let tries = 0;
+	let dataCipherIV = '';
+	const query = {
+		query: `query {
+      transactions(ids: ["${txid}"]) {
+      edges {
+        node {
+          id
+          tags {
+            name
+            value
+          }
+        }
+      }
+    }
+  }`
+	};
+	// We will only attempt this 10 times
+	while (tries < 10) {
+		try {
+			// Call the Arweave Graphql Endpoint
+			const response = await arweave.api.request().post(graphQLURL, query);
+			const { data } = response.data;
+			const { transactions } = data;
+			const { edges } = transactions;
+			const { node } = edges[0];
+			const { tags } = node;
+			tags.forEach((tag: types.GQLTagInterface) => {
+				const key = tag.name;
+				const { value } = tag;
+				switch (key) {
+					case 'Cipher-IV':
+						dataCipherIV = value;
+						break;
+					default:
+						break;
+				}
+			});
+			return dataCipherIV;
+		} catch (err) {
+			console.log(err);
+			console.log('Error getting private transaction cipherIV for txid %s, trying again', txid);
+			if (tries < 5) {
+				tries += 1;
+			} else {
+				tries += 1;
+				console.log('Primary gateway is having issues, switching to backup and trying again');
+				graphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
+			}
+		}
+	}
+	return 'CORE GQL ERROR: Cannot get file data Cipher IV';
+}
+
+// Asyncronous ForEach function
+async function asyncForEach(array: any[], callback: any): Promise<string> {
+	for (let index = 0; index < array.length; index += 1) {
+		// eslint-disable-next-line no-await-in-loop
+		await callback(array[index], index, array);
+	}
+	return 'Done';
+}
+
+// Converts a UTF8Array to a string
+function Utf8ArrayToStr(array: any): string {
+	let out, i, c;
+	let char2, char3;
+
+	out = '';
+	const len = array.length;
+	i = 0;
+	while (i < len) {
+		c = array[i++];
+		switch (c >> 4) {
+			case 0:
+			case 1:
+			case 2:
+			case 3:
+			case 4:
+			case 5:
+			case 6:
+			case 7:
+				// 0xxxxxxx
+				out += String.fromCharCode(c);
+				break;
+			case 12:
+			case 13:
+				// 110x xxxx   10xx xxxx
+				char2 = array[i++];
+				out += String.fromCharCode(((c & 0x1f) << 6) | (char2 & 0x3f));
+				break;
+			case 14:
+				// 1110 xxxx  10xx xxxx  10xx xxxx
+				char2 = array[i++];
+				char3 = array[i++];
+				out += String.fromCharCode(((c & 0x0f) << 12) | ((char2 & 0x3f) << 6) | ((char3 & 0x3f) << 0));
+				break;
+		}
+	}
+	return out;
 }
 
 // Uses GraphQl to pull necessary drive information from another user's Shared Public Drives
@@ -1002,7 +1107,7 @@ export async function getAllMyPublicArDriveIds(
 }
 
 // Gets all of the transactions from a user's wallet, filtered by owner and drive ID
-// CHANGE TO RETURN ARFSFILEMETADATA
+// OLD
 export async function getAllMyDataFileTxs(
 	walletPublicKey: string,
 	driveId: string,
@@ -1309,109 +1414,4 @@ export async function getAllMySharedDataFileTxs(
 		}
 	}
 	return edges;
-}
-
-// Gets the CipherIV tag of a private data transaction
-export async function getPrivateTransactionCipherIV(txid: string): Promise<string> {
-	let graphQLURL = primaryGraphQLURL;
-	let tries = 0;
-	let dataCipherIV = '';
-	const query = {
-		query: `query {
-      transactions(ids: ["${txid}"]) {
-      edges {
-        node {
-          id
-          tags {
-            name
-            value
-          }
-        }
-      }
-    }
-  }`
-	};
-	// We will only attempt this 10 times
-	while (tries < 10) {
-		try {
-			// Call the Arweave Graphql Endpoint
-			const response = await arweave.api.request().post(graphQLURL, query);
-			const { data } = response.data;
-			const { transactions } = data;
-			const { edges } = transactions;
-			const { node } = edges[0];
-			const { tags } = node;
-			tags.forEach((tag: types.GQLTagInterface) => {
-				const key = tag.name;
-				const { value } = tag;
-				switch (key) {
-					case 'Cipher-IV':
-						dataCipherIV = value;
-						break;
-					default:
-						break;
-				}
-			});
-			return dataCipherIV;
-		} catch (err) {
-			console.log(err);
-			console.log('Error getting private transaction cipherIV for txid %s, trying again', txid);
-			if (tries < 5) {
-				tries += 1;
-			} else {
-				tries += 1;
-				console.log('Primary gateway is having issues, switching to backup and trying again');
-				graphQLURL = backupGraphQLURL; // Change to the backup URL and try 5 times
-			}
-		}
-	}
-	return 'CORE GQL ERROR: Cannot get file data Cipher IV';
-}
-
-// Asyncronous ForEach function
-async function asyncForEach(array: any[], callback: any): Promise<string> {
-	for (let index = 0; index < array.length; index += 1) {
-		// eslint-disable-next-line no-await-in-loop
-		await callback(array[index], index, array);
-	}
-	return 'Done';
-}
-
-// Converts a UTF8Array to a string
-function Utf8ArrayToStr(array: any): string {
-	let out, i, c;
-	let char2, char3;
-
-	out = '';
-	const len = array.length;
-	i = 0;
-	while (i < len) {
-		c = array[i++];
-		switch (c >> 4) {
-			case 0:
-			case 1:
-			case 2:
-			case 3:
-			case 4:
-			case 5:
-			case 6:
-			case 7:
-				// 0xxxxxxx
-				out += String.fromCharCode(c);
-				break;
-			case 12:
-			case 13:
-				// 110x xxxx   10xx xxxx
-				char2 = array[i++];
-				out += String.fromCharCode(((c & 0x1f) << 6) | (char2 & 0x3f));
-				break;
-			case 14:
-				// 1110 xxxx  10xx xxxx  10xx xxxx
-				char2 = array[i++];
-				char3 = array[i++];
-				out += String.fromCharCode(((c & 0x0f) << 12) | ((char2 & 0x3f) << 6) | ((char3 & 0x3f) << 0));
-				break;
-		}
-	}
-	return out;
 }
