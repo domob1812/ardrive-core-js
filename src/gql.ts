@@ -122,7 +122,7 @@ export async function getDriveEntity(driveId: string): Promise<types.ArFSDriveEn
 }
 
 // Gets the latest version of a folder entity
-export async function getFolderEntity(owner: string, folderId: string): Promise<types.ArFSFolderEntity | string> {
+export async function getFolderEntity(owner: string, uuid: string): Promise<types.ArFSFolderEntity | string> {
 	const graphQLURL = primaryGraphQLURL;
 	const folder: types.ArFSFolderEntity = {
 		appName: '',
@@ -133,7 +133,7 @@ export async function getFolderEntity(owner: string, folderId: string): Promise<
 		contentType: '',
 		driveId: '',
 		entityType: 'folder',
-		folderId: '',
+		uuid: '',
 		name: '',
 		parentFolderId: '',
 		txId: '',
@@ -146,7 +146,7 @@ export async function getFolderEntity(owner: string, folderId: string): Promise<
         first: 1
         sort: HEIGHT_ASC
 		owners: ["${owner}"]
-        tags: { name: "Folder-Id", values: "${folderId}"}
+        tags: { name: "Folder-Id", values: "${uuid}"}
       ) {
         edges {
           node {
@@ -198,7 +198,7 @@ export async function getFolderEntity(owner: string, folderId: string): Promise<
 						folder.entityType = value;
 						break;
 					case 'Folder-Id':
-						folder.folderId = value;
+						folder.uuid = value;
 						break;
 					case 'Parent-Folder-Id':
 						folder.parentFolderId = value;
@@ -402,7 +402,7 @@ export async function getAllFolderEntities(
 					contentType: '',
 					driveId: '',
 					entityType: 'folder',
-					folderId: '',
+					uuid: '',
 					name: '',
 					parentFolderId: '',
 					unixTime: 0,
@@ -438,7 +438,7 @@ export async function getAllFolderEntities(
 							folder.driveId = value;
 							break;
 						case 'Folder-Id':
-							folder.folderId = value;
+							folder.uuid = value;
 							break;
 						case 'Parent-Folder-Id':
 							folder.parentFolderId = value;
@@ -549,7 +549,7 @@ export async function getAllFileEntities(
 					dataContentType: '',
 					driveId: '',
 					entityType: 'file',
-					fileId: '',
+					uuid: '',
 					lastModifiedDate: 0,
 					name: '',
 					parentFolderId: '',
@@ -587,7 +587,7 @@ export async function getAllFileEntities(
 							file.driveId = value;
 							break;
 						case 'File-Id':
-							file.fileId = value;
+							file.uuid = value;
 							break;
 						case 'Parent-Folder-Id':
 							file.parentFolderId = value;
@@ -925,7 +925,7 @@ export async function getSharedPublicDrive(driveId: string): Promise<types.ArFSD
 // OLD
 export async function getPrivateDriveRootFolderTxId(
 	driveId: string,
-	folderId: string
+	uuid: string
 ): Promise<types.ArFSRootFolderMetaData> {
 	const graphQLURL = primaryGraphQLURL;
 	let rootFolderMetaData: types.ArFSRootFolderMetaData = {
@@ -941,7 +941,7 @@ export async function getPrivateDriveRootFolderTxId(
         sort: HEIGHT_ASC
         tags: [
           { name: "Drive-Id", values: "${driveId}" }
-          { name: "Folder-Id", values: "${folderId}"}
+          { name: "Folder-Id", values: "${uuid}"}
         ]
       ) {
         edges {
@@ -981,7 +981,7 @@ export async function getPrivateDriveRootFolderTxId(
 	} catch (err) {
 		console.log(err);
 		console.log('Error querying GQL for personal private drive root folder id, trying again.');
-		rootFolderMetaData = await getPrivateDriveRootFolderTxId(driveId, folderId);
+		rootFolderMetaData = await getPrivateDriveRootFolderTxId(driveId, uuid);
 		return rootFolderMetaData;
 	}
 }

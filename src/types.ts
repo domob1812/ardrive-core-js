@@ -188,7 +188,7 @@ export interface ArFSFolderEntity {
 	contentType: string; // <application/json | application/octet-stream>
 	driveId: string; // <uuid>
 	entityType: string; // folder
-	folderId: string; // <uuid>
+	uuid: string; // <uuid>
 	name: string; // <user defined folder name>
 	parentFolderId: string; // <parent folder uuid>
 	txId: string; // <arweave transaction id>
@@ -209,7 +209,7 @@ export interface ArFSFileEntity {
 	dataTxId?: string; // <arweave transaction id of underlying data for this transaction>
 	driveId: string; // <uuid>
 	entityType: string; // file
-	fileId: string; // <uuid>
+	uuid: string; // <uuid>
 	name: string; // <user defined file name with extension eg. happyBirthday.jpg>
 	parentFolderId: string; // <parent folder uuid>
 	size: number; // <computed file size - int>
