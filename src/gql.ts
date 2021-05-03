@@ -219,6 +219,107 @@ export async function getFolderEntity(owner: string, uuid: string): Promise<type
 	}
 }
 
+// Gets the latest version of a file entity
+export async function getFileEntity(owner: string, uuid: string): Promise<types.ArFSFileEntity | string> {
+	const graphQLURL = primaryGraphQLURL;
+	const file: types.ArFSFileEntity = {
+		appName: '',
+		appVersion: '',
+		arFS: '',
+		cipher: '',
+		cipherIV: '',
+		contentType: '',
+		driveId: '',
+		entityType: 'file',
+		uuid: '',
+		name: '',
+		parentFolderId: '',
+		txId: '',
+		size: 0,
+		dataContentType: '',
+		lastModifiedDate: 0,
+		unixTime: 0
+	};
+	try {
+		const query = {
+			query: `query {
+      transactions(
+        first: 1
+        sort: HEIGHT_ASC
+		owners: ["${owner}"]
+        tags: { name: "File-Id", values: "${uuid}"}
+      ) {
+        edges {
+          node {
+            id
+            tags {
+              name
+              value
+            }
+          }
+        }
+      }
+    }`
+		};
+		const response = await arweave.api.post(graphQLURL, query);
+		const { data } = response.data;
+		const { transactions } = data;
+		const { edges } = transactions;
+		edges.array.forEach((edge: types.GQLEdgeInterface) => {
+			const { node } = edge;
+			const { tags } = node;
+			file.txId = node.id;
+			// Enumerate through each tag to pull the data
+			tags.forEach((tag: types.GQLTagInterface) => {
+				const key = tag.name;
+				const { value } = tag;
+				switch (key) {
+					case 'App-Name':
+						file.appName = value;
+						break;
+					case 'App-Version':
+						file.appVersion = value;
+						break;
+					case 'ArFS':
+						file.arFS = value;
+						break;
+					case 'Cipher':
+						file.cipher = value;
+						break;
+					case 'Cipher-IV':
+						file.cipherIV = value;
+						break;
+					case 'Content-Type':
+						file.contentType = value;
+						break;
+					case 'Drive-Id':
+						file.driveId = value;
+						break;
+					case 'Entity-Type':
+						file.entityType = value;
+						break;
+					case 'File-Id':
+						file.uuid = value;
+						break;
+					case 'Parent-Folder-Id':
+						file.parentFolderId = value;
+						break;
+					case 'Unix-Time':
+						file.unixTime = +value; // Convert to number
+						break;
+					default:
+						break;
+				}
+			});
+		});
+		return file;
+	} catch (err) {
+		console.log(err);
+		console.log('CORE GQL ERROR: Cannot get folder entity');
+		return 'CORE GQL ERROR: Cannot get folder entity';
+	}
+}
+
 // Gets all of the drive entities for a users wallet
 // Uses the Entity type to only search for Drive tags.  Can filter on public or private drives
 export async function getAllDriveEntities(
