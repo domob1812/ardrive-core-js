@@ -732,6 +732,21 @@ export async function getAllFileEntities(
 	}
 }
 
+// Gets all of the File and Folder Entities from GraphQL for a specific drive
+export async function getAllFileAndFolderEntities(
+	owner: string,
+	driveId: string,
+	lastBlockHeight: number
+): Promise<{ fileEntities: types.ArFSFileEntity[]; folderEntities: types.ArFSFolderEntity[] } | string> {
+	const folderEntities = await getAllFolderEntities(owner, driveId, lastBlockHeight);
+	const fileEntities = await getAllFileEntities(owner, driveId, lastBlockHeight);
+	if (typeof folderEntities === 'object' && typeof fileEntities === 'object') {
+		return { folderEntities, fileEntities };
+	} else {
+		return 'Error';
+	}
+}
+
 // Gets the the tags for a file entity data transaction
 export async function getFileEntityData(txid: string): Promise<types.ArFSFileEntityData | string> {
 	let graphQLURL = primaryGraphQLURL;
