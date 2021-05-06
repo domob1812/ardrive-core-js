@@ -110,7 +110,7 @@ export async function getLatestBlockHeight(): Promise<number> {
 
 // Creates an arweave transaction to upload a drive entity
 export async function createDriveTransaction(
-	driveJSON: string | Buffer,
+	driveJSON: string,
 	driveMetaData: arFsTypes.ArFSDriveEntity,
 	walletPrivateKey?: JWKInterface
 ): Promise<Transaction> {
@@ -128,13 +128,42 @@ export async function createDriveTransaction(
 	transaction.addTag('Drive-Id', driveMetaData.driveId);
 	transaction.addTag('Drive-Privacy', driveMetaData.drivePrivacy);
 	transaction.addTag('Content-Type', driveMetaData.contentType);
-	if (driveMetaData.drivePrivacy === 'private') {
-		// If the file is private, we use extra tags
-		// Tag file with Content-Type, Cipher and Cipher-IV and Drive-Auth-Mode
-		transaction.addTag('Cipher', driveMetaData.cipher);
-		transaction.addTag('Cipher-IV', driveMetaData.cipherIV);
-		transaction.addTag('Drive-Auth-Mode', driveMetaData.driveAuthMode);
+	transaction.addTag('ArFS', driveMetaData.arFS);
+	transaction.addTag('Entity-Type', 'drive');
+
+	// Sign file
+	if (walletPrivateKey) {
+		await arweave.transactions.sign(transaction, walletPrivateKey);
+	} else {
+		await arweave.transactions.sign(transaction); // Will use ArConnect if no wallet present
 	}
+	return transaction;
+}
+
+// Creates an arweave transaction to upload a drive entity
+export async function createPrivateDriveTransaction(
+	driveJSON: Buffer, // must be an encrypted buffer
+	driveMetaData: arFsTypes.ArFSPrivateDriveEntity,
+	walletPrivateKey?: JWKInterface
+): Promise<Transaction> {
+	// Create transaction
+	let transaction: Transaction;
+	if (walletPrivateKey) {
+		transaction = await arweave.createTransaction({ data: driveJSON }, walletPrivateKey);
+	} else {
+		transaction = await arweave.createTransaction({ data: driveJSON }); // Will use ArConnect if no wallet present
+	}
+	// Tag file with ArFS Tags
+	transaction.addTag('App-Name', driveMetaData.appName);
+	transaction.addTag('App-Version', driveMetaData.appVersion);
+	transaction.addTag('Unix-Time', driveMetaData.unixTime.toString());
+	transaction.addTag('Drive-Id', driveMetaData.driveId);
+	transaction.addTag('Drive-Privacy', driveMetaData.drivePrivacy);
+	transaction.addTag('Content-Type', driveMetaData.contentType);
+	// Tag file with Content-Type, Cipher and Cipher-IV and Drive-Auth-Mode
+	transaction.addTag('Cipher', driveMetaData.cipher);
+	transaction.addTag('Cipher-IV', driveMetaData.cipherIV);
+	transaction.addTag('Drive-Auth-Mode', driveMetaData.driveAuthMode);
 	transaction.addTag('ArFS', driveMetaData.arFS);
 	transaction.addTag('Entity-Type', 'drive');
 
@@ -210,7 +239,7 @@ export async function createPrivateFileDataTransaction(
 // This will prepare and sign a v2 data transaction using ArFS File Metadata Tags
 export async function createFileFolderMetaDataTransaction(
 	metaData: arFsTypes.ArFSFileFolderEntity,
-	secondaryFileMetaData: string | Buffer,
+	secondaryFileMetaData: string,
 	walletPrivateKey?: JWKInterface
 ): Promise<Transaction> {
 	let transaction: Transaction;
@@ -354,9 +383,9 @@ export async function createPrivateFileDataItemTransaction(
 }
 
 // Creates an arweave data item transaction (ANS-102) using ArFS Tags
-export async function createFileMetaDataItemTransaction(
+export async function createFileFolderMetaDataItemTransaction(
 	metaData: arFsTypes.ArFSFileFolderEntity,
-	secondaryFileMetaData: string | Buffer,
+	secondaryFileMetaData: string,
 	walletPrivateKey: JWKInterface
 ): Promise<DataItemJson | string> {
 	try {
@@ -398,7 +427,7 @@ export async function createFileMetaDataItemTransaction(
 // Creates an arweave data item transaction (ANS-102) using ArFS Tags
 export async function createPrivateFileFolderMetaDataItemTransaction(
 	metaData: arFsTypes.ArFSPrivateFileFolderEntity,
-	secondaryFileMetaData: Buffer,
+	secondaryFileMetaData: Buffer, // the buffer must already be encrypted
 	walletPrivateKey: JWKInterface
 ): Promise<DataItemJson | string> {
 	try {
