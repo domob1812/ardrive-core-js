@@ -1176,19 +1176,15 @@ export async function getAllPublicFileEntities(
 					appName: '',
 					appVersion: '',
 					arFS: '',
-					cipher: '',
-					cipherIV: '',
 					contentType: '',
-					dataContentType: '',
 					driveId: '',
 					entityType: 'file',
-					uuid: '',
-					lastModifiedDate: 0,
+					entityId: '',
 					name: '',
 					parentFolderId: '',
-					size: 0,
 					txId: '',
-					unixTime: 0
+					unixTime: 0,
+					syncStatus: 0
 				};
 				cursor = edge.cursor;
 				const { node } = edge;
@@ -1206,12 +1202,6 @@ export async function getAllPublicFileEntities(
 							break;
 						case 'ArFS':
 							file.arFS = value;
-							break;
-						case 'Cipher':
-							file.cipher = value;
-							break;
-						case 'Cipher-IV':
-							file.cipherIV = value;
 							break;
 						case 'Content-Type':
 							file.contentType = value;
