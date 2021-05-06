@@ -57,6 +57,7 @@ export interface ArFSFileData {
 	appName: string; // The app that has submitted this entity
 	appVersion: string; // The app version that has submitted this entity
 	contentType: string; // the mime type of the file uploaded.  Could be any file/mime type: https://www.freeformatter.com/mime-types-list.html
+	syncStatus: number; // the status of this transaction.  0 = 'ready to download', 1 = 'ready to upload', 2 = 'getting mined', 3 = 'successfully uploaded'
 	txId: string; // the arweave transaction id for this file data. 43 numbers/letters eg. 1xRhN90Mu5mEgyyrmnzKgZP0y3aK8AwSucwlCOAwsaI
 	unixTime: number; // seconds since unix epoch, taken at the time of upload, 10 numbers eg. 1620068042
 }
