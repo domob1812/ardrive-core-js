@@ -25,7 +25,7 @@ export async function arfsGetDrive(driveId: string, driveKey?: Buffer): Promise<
 	const drive = await gql.getDriveEntity(driveId);
 	if (typeof drive === 'string') {
 		// There was an error
-		return drive;
+		return 'Error getting Drive Entity';
 	} else {
 		// Get the data JSON for this drive transaction
 		const data = await arweave.getTransactionData(drive.txId);
@@ -45,6 +45,25 @@ export async function arfsGetDrive(driveId: string, driveKey?: Buffer): Promise<
 			drive.rootFolderId = driveJSON.rootFolderId;
 		}
 		return drive;
+	}
+}
+
+// Gets all Files and Folders for a particular drive.  If the file or folder is private, it will decrypt it with the driveKey
+export async function arfsSyncDrive(
+	owner: string,
+	driveId: string,
+	lastBlockHeight: number,
+	driveKey?: Buffer
+): Promise<{ fileEntities: types.ArFSFileEntity[]; folderEntities: types.ArFSFolderEntity[] } | string> {
+	const driveState = await gql.getAllFileAndFolderEntities(owner, driveId, lastBlockHeight);
+	if (typeof driveState === 'string') {
+		// MUST USE CORRECT ERROR CHECKING
+		// There was an error
+		return 'Error synchronizing drive';
+	} else {
+		for (let i = 0; i < driveState.folderEntities.length; i++) {
+			await getTransactionData(driveState.folderEntities[i].txId);
+		}
 	}
 }
 
