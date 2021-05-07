@@ -1815,7 +1815,7 @@ export async function getSharedPublicDrive(driveId: string): Promise<arFsTypes.A
 export async function getPrivateDriveRootFolderTxId(
 	driveId: string,
 	uuid: string
-): Promise<arFsTypes.ArFSRootFolderMetaData> {
+): Promise<types.ArFSRootFolderMetaData> {
 	const graphQLURL = primaryGraphQLURL;
 	let rootFolderMetaData: arFsTypes.ArFSRootFolderMetaData = {
 		metaDataTxId: '0',

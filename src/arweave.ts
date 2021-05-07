@@ -8,7 +8,6 @@ import ArweaveBundles from 'arweave-bundles';
 import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
 import Transaction from 'arweave/node/lib/transaction';
-import { arfsNewFileMetaData } from './arfs';
 
 const appName = 'ArDrive-Desktop';
 const appVersion = '0.1.0';
