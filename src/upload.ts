@@ -73,6 +73,103 @@ async function createArFSFileDataItem(
 	}
 }
 
+async function createArFSPublicFileDataItem(
+	user: types.ArDriveUser,
+	fileToUpload: types.ArFSFileMetaData
+): Promise<DataItemJson | null> {
+	let dataItem: DataItemJson | null;
+	try {
+		console.log('Bundling %s (%d bytes) to the Permaweb', fileToUpload.filePath, fileToUpload.fileSize);
+		const fileData = fs.readFileSync(fileToUpload.filePath);
+		dataItem = await arweave.prepareArFSDataItemTransaction(user, fileData, fileToUpload);
+
+		if (dataItem != null) {
+			console.log('SUCCESS %s data item was created with TX %s', fileToUpload.filePath, dataItem.id);
+
+			// Set the file metadata to syncing
+			fileToUpload.fileDataSyncStatus = 2;
+			fileToUpload.dataTxId = dataItem.id;
+
+			// Update the queue since the file is now being uploaded
+			await updateDb.updateFileDataSyncStatus(
+				fileToUpload.fileDataSyncStatus,
+				fileToUpload.dataTxId,
+				fileToUpload.dataCipherIV,
+				fileToUpload.cipher,
+				fileToUpload.id
+			);
+
+			// Update the uploadTime of the file so we can track the status
+			const currentTime = Math.round(Date.now() / 1000);
+			await updateDb.updateFileUploadTimeInSyncTable(fileToUpload.id, currentTime);
+		}
+		return dataItem;
+	} catch (err) {
+		console.log(err);
+		console.log('Error bundling file data item');
+		return null;
+	}
+}
+
+async function createArFSPrivateFileDataItem(
+	user: types.ArDriveUser,
+	fileToUpload: types.ArFSFileMetaData
+): Promise<DataItemJson | null> {
+	let dataItem: DataItemJson | null;
+	try {
+		// Private file, so it must be encrypted
+		console.log(
+			'Encrypting and bundling %s (%d bytes) to the Permaweb',
+			fileToUpload.filePath,
+			fileToUpload.fileSize
+		);
+
+		// Derive the keys needed for encryption
+		const driveKey: Buffer = await deriveDriveKey(
+			user.dataProtectionKey,
+			fileToUpload.driveId,
+			user.walletPrivateKey
+		);
+		const fileKey: Buffer = await deriveFileKey(fileToUpload.fileId, driveKey);
+
+		// Get the encrypted version of the file
+		const encryptedData: types.ArFSEncryptedData = await getFileAndEncrypt(fileKey, fileToUpload.filePath);
+
+		// Set the private file metadata
+		fileToUpload.dataCipherIV;
+		fileToUpload.cipher;
+
+		// Get a signed data item for the encrypted data
+		dataItem = await arweave.prepareArFSDataItemTransaction(user, encryptedData.data, fileToUpload);
+
+		if (dataItem != null) {
+			console.log('SUCCESS %s data item was created with TX %s', fileToUpload.filePath, dataItem.id);
+
+			// Set the file metadata to syncing
+			fileToUpload.fileDataSyncStatus = 2;
+			fileToUpload.dataTxId = dataItem.id;
+
+			// Update the queue since the file is now being uploaded
+			await updateDb.updateFileDataSyncStatus(
+				fileToUpload.fileDataSyncStatus,
+				fileToUpload.dataTxId,
+				fileToUpload.dataCipherIV,
+				fileToUpload.cipher,
+				fileToUpload.id
+			);
+
+			// Update the uploadTime of the file so we can track the status
+			const currentTime = Math.round(Date.now() / 1000);
+			await updateDb.updateFileUploadTimeInSyncTable(fileToUpload.id, currentTime);
+		}
+		return dataItem;
+	} catch (err) {
+		console.log(err);
+		console.log('Error bundling file data item');
+		return null;
+	}
+}
+
 // Tags and creates a single file metadata item (ANS-102) to your ArDrive
 async function createArFSFileMetaDataItem(
 	user: types.ArDriveUser,
