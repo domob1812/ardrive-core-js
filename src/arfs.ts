@@ -2,11 +2,11 @@
 import * as arweave from './arweave';
 import * as fs from 'fs';
 import * as types from './types/base_Types';
+import * as clientTypes from './types/client_Types';
 import { fileEncrypt, deriveDriveKey, deriveFileKey, getFileAndEncrypt, driveEncrypt } from './crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
-import Transaction from 'arweave/node/lib/transaction';
 
 export const prodAppUrl = 'https://app.ardrive.io';
 export const stagingAppUrl = 'https://staging.ardrive.io';
@@ -20,77 +20,25 @@ export const arFSVersion = '0.11';
 export const cipher = 'AES256-GCM';
 
 // Tags and creates a new data item (ANS-102) to be bundled and uploaded
+
 export async function newArFSFileDataItem(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData,
-	fileData: Buffer
-): Promise<{ fileMetaData: types.ArFSFileMetaData; dataItem: DataItemJson } | null> {
+	file: clientTypes.ArFSLocalFile
+): Promise<{ file: clientTypes.ArFSLocalFile; dataItem: DataItemJson } | null> {
 	let dataItem: DataItemJson | null;
 	try {
-		if (fileMetaData.isPublic === 0) {
-			// Private file, so it must be encrypted
-			console.log(
-				'Encrypting and bundling %s (%d bytes) to the Permaweb',
-				fileMetaData.filePath,
-				fileMetaData.fileSize
-			);
-
-			// Derive the keys needed for encryption
-			const driveKey: Buffer = await deriveDriveKey(
-				user.dataProtectionKey,
-				fileMetaData.driveId,
-				user.walletPrivateKey
-			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-
-			// Get the encrypted version of the file
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(fileKey, fileData);
-
-			// Set the private file metadata
-			fileMetaData.dataCipherIV;
-			fileMetaData.cipher;
-
-			// Get a signed data item for the encrypted data
-			dataItem = await arweave.prepareArFSDataItemTransaction(user, encryptedData.data, fileMetaData);
-		} else {
-			console.log('Bundling %s (%d bytes) to the Permaweb', fileMetaData.filePath, fileMetaData.fileSize);
-			const fileData = fs.readFileSync(fileMetaData.filePath);
-			dataItem = await arweave.prepareArFSDataItemTransaction(user, fileData, fileMetaData);
-		}
-		if (dataItem != null) {
-			console.log('SUCCESS %s data item was created with TX %s', fileMetaData.filePath, dataItem.id);
-
-			// Set the file metadata to syncing
-			fileMetaData.fileDataSyncStatus = 2;
-			fileMetaData.dataTxId = dataItem.id;
-			return { fileMetaData, dataItem };
-		} else {
-			return null;
-		}
-	} catch (err) {
-		console.log(err);
-		console.log('Error bundling file data item');
-		return null;
-	}
-}
-//TODO: Type guards for public and private fileMetaData
-export async function newArFSPublicFileDataItem(
-	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData
-): Promise<{ fileMetaData: types.ArFSFileMetaData; dataItem: DataItemJson } | null> {
-	let dataItem: DataItemJson | null;
-	try {
-		console.log('Bundling %s (%d bytes) to the Permaweb', fileMetaData.filePath, fileMetaData.fileSize);
-		const fileData = fs.readFileSync(fileMetaData.filePath);
-		dataItem = await arweave.prepareArFSDataItemTransaction(user, fileData, fileMetaData);
+		//Note: No size field on this new type, find out reason and add back later
+		console.log('Bundling %s (%d bytes) to the Permaweb', file.path, file.size);
+		const fileData = fs.readFileSync(file.path);
+		dataItem = await arweave.prepareArFSDataItemTransaction(user, fileData, file);
 
 		if (dataItem != null) {
-			console.log('SUCCESS %s data item was created with TX %s', fileMetaData.filePath, dataItem.id);
+			console.log('SUCCESS %s data item was created with TX %s', file.path, dataItem.id);
 
 			// Set the file metadata to syncing
-			fileMetaData.fileDataSyncStatus = 2;
-			fileMetaData.dataTxId = dataItem.id;
-			return { fileMetaData, dataItem };
+			file.data.syncStatus = 2;
+			file.data.txId = dataItem.id;
+			return { file, dataItem };
 		} else {
 			return null;
 		}
@@ -103,43 +51,39 @@ export async function newArFSPublicFileDataItem(
 
 export async function newArFSPrivateFileDataItem(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData,
+	file: clientTypes.ArFSLocalPrivateFile,
 	fileData: Buffer
-): Promise<{ fileMetaData: types.ArFSFileMetaData; dataItem: DataItemJson } | null> {
+): Promise<{ file: clientTypes.ArFSLocalPrivateFile; dataItem: DataItemJson } | null> {
 	let dataItem: DataItemJson | null;
 	try {
 		// Private file, so it must be encrypted
-		console.log(
-			'Encrypting and bundling %s (%d bytes) to the Permaweb',
-			fileMetaData.filePath,
-			fileMetaData.fileSize
-		);
+		console.log('Encrypting and bundling %s (%d bytes) to the Permaweb', file.path, file.size);
 
 		// Derive the keys needed for encryption
 		const driveKey: Buffer = await deriveDriveKey(
 			user.dataProtectionKey,
-			fileMetaData.driveId,
+			file.entity.driveId,
 			user.walletPrivateKey
 		);
-		const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
+		const fileKey: Buffer = await deriveFileKey(file.entity.entityId, driveKey);
 
 		// Get the encrypted version of the file
 		const encryptedData: types.ArFSEncryptedData = await fileEncrypt(fileKey, fileData);
 
 		// Set the private file metadata
-		fileMetaData.dataCipherIV;
-		fileMetaData.cipher;
+		file.entity.cipherIV;
+		file.entity.cipher;
 
 		// Get a signed data item for the encrypted data
-		dataItem = await arweave.prepareArFSDataItemTransaction(user, encryptedData.data, fileMetaData);
+		dataItem = await arweave.prepareArFSDataItemTransaction(user, encryptedData.data, file);
 
 		if (dataItem != null) {
-			console.log('SUCCESS %s data item was created with TX %s', fileMetaData.filePath, dataItem.id);
+			console.log('SUCCESS %s data item was created with TX %s', file.path, dataItem.id);
 
 			// Set the file metadata to syncing
-			fileMetaData.fileDataSyncStatus = 2;
-			fileMetaData.dataTxId = dataItem.id;
-			return { fileMetaData, dataItem };
+			file.entity.syncStatus = 2;
+			file.entity.txId = dataItem.id;
+			return { file, dataItem };
 		} else {
 			return null;
 		}
@@ -152,56 +96,38 @@ export async function newArFSPrivateFileDataItem(
 // Tags and creates a single file metadata item (ANS-102) to your ArDrive
 export async function newArFSFileMetaDataItem(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData
-): Promise<{ fileMetaData: types.ArFSFileMetaData; dataItem: DataItemJson } | null> {
+	file: clientTypes.ArFSLocalFile
+): Promise<{ file: clientTypes.ArFSLocalFile; dataItem: DataItemJson } | null> {
 	let dataItem: DataItemJson | null;
 	let secondaryFileMetaDataTags = {};
 	try {
 		// create secondary metadata, used to further ID the file (with encryption if necessary)
-		if (fileMetaData.entityType === 'folder') {
+		if (file.entity.entityType === 'folder') {
 			// create secondary metadata specifically for a folder
 			secondaryFileMetaDataTags = {
-				name: fileMetaData.fileName
+				name: file.entity.name
 			};
-		} else if (fileMetaData.entityType === 'file') {
+		} else if (file.entity.entityType === 'file') {
 			secondaryFileMetaDataTags = {
-				name: fileMetaData.fileName,
-				size: fileMetaData.fileSize,
-				lastModifiedDate: fileMetaData.lastModifiedDate,
-				dataTxId: fileMetaData.dataTxId,
-				dataContentType: fileMetaData.contentType
+				name: file.entity.name,
+				size: file.size,
+				lastModifiedDate: file.entity.unixTime,
+				dataTxId: file.data.txId,
+				dataContentType: file.entity.contentType
 			};
 		}
 
 		// Convert to JSON string
 		const secondaryFileMetaDataJSON = JSON.stringify(secondaryFileMetaDataTags);
-		if (fileMetaData.isPublic === 1) {
-			// Public file, do not encrypt
-			dataItem = await arweave.prepareArFSMetaDataItemTransaction(user, fileMetaData, secondaryFileMetaDataJSON);
-		} else {
-			// Private file, so it must be encrypted
-			const driveKey: Buffer = await deriveDriveKey(
-				user.dataProtectionKey,
-				fileMetaData.driveId,
-				user.walletPrivateKey
-			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
-				fileKey,
-				Buffer.from(secondaryFileMetaDataJSON)
-			);
+		// Public file, do not encrypt
+		dataItem = await arweave.prepareArFSMetaDataItemTransaction(user, file, secondaryFileMetaDataJSON);
 
-			// Update the file privacy metadata
-			fileMetaData.metaDataCipherIV = encryptedData.cipherIV;
-			fileMetaData.cipher = encryptedData.cipher;
-			dataItem = await arweave.prepareArFSMetaDataItemTransaction(user, fileMetaData, encryptedData.data);
-		}
 		if (dataItem != null) {
-			console.log('SUCCESS %s data item was created with TX %s', fileMetaData.filePath, dataItem.id);
+			console.log('SUCCESS %s data item was created with TX %s', file.path, dataItem.id);
 			// Set the file metadata to syncing
-			fileMetaData.fileMetaDataSyncStatus = 2;
-			fileMetaData.metaDataTxId = dataItem.id;
-			return { fileMetaData, dataItem };
+			file.entity.syncStatus = 2;
+			file.entity.txId = dataItem.id;
+			return { file, dataItem };
 		} else {
 			return null;
 		}
@@ -211,86 +137,85 @@ export async function newArFSFileMetaDataItem(
 		return null;
 	}
 }
-
-// Takes a buffer and ArFS File Metadata and creates an ArFS Data Transaction using V2 Transaction with proper GQL tags
-export async function newArFSFileData(
+export async function newArFSPrivateFileMetaDataItem(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData,
-	fileData: Buffer
-): Promise<{ fileMetaData: types.ArFSFileMetaData; uploader: TransactionUploader } | null> {
-	let transaction;
+	file: clientTypes.ArFSLocalPrivateFile
+): Promise<{ file: clientTypes.ArFSLocalPrivateFile; dataItem: DataItemJson } | null> {
+	let dataItem: DataItemJson | null;
+	let secondaryFileMetaDataTags = {};
 	try {
-		if (fileMetaData.isPublic === 0) {
-			// The file is private and we must encrypt
-			console.log(
-				'Encrypting and uploading the PRIVATE file %s (%d bytes) at %s to the Permaweb',
-				fileMetaData.filePath,
-				fileMetaData.fileSize
-			);
-			// Derive the drive and file keys in order to encrypt it with ArFS encryption
-			const driveKey: Buffer = await deriveDriveKey(
-				user.dataProtectionKey,
-				fileMetaData.driveId,
-				user.walletPrivateKey
-			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-
-			// Encrypt the data with the file key
-			const encryptedData: types.ArFSEncryptedData = await getFileAndEncrypt(fileKey, fileMetaData.filePath);
-
-			// Update the file metadata
-			fileMetaData.dataCipherIV = encryptedData.cipherIV;
-			fileMetaData.cipher = encryptedData.cipher;
-
-			// Create the Arweave transaction.  It will add the correct ArFS tags depending if it is public or private
-			transaction = await arweave.prepareArFSDataTransaction(user, encryptedData.data, fileMetaData);
-		} else {
-			// The file is public
-			console.log(
-				'Uploading the PUBLIC file %s (%d bytes) at %s to the Permaweb',
-				fileMetaData.filePath,
-				fileMetaData.fileSize
-			);
-
-			// Create the Arweave transaction.  It will add the correct ArFS tags depending if it is public or private
-			transaction = await arweave.prepareArFSDataTransaction(user, fileData, fileMetaData);
+		// create secondary metadata, used to further ID the file (with encryption if necessary)
+		if (file.entity.entityType === 'folder') {
+			// create secondary metadata specifically for a folder
+			secondaryFileMetaDataTags = {
+				name: file.entity.name
+			};
+		} else if (file.entity.entityType === 'file') {
+			secondaryFileMetaDataTags = {
+				name: file.entity.name,
+				size: file.size,
+				lastModifiedDate: file.entity.unixTime,
+				dataTxId: file.data.txId,
+				dataContentType: file.entity.contentType
+			};
 		}
 
-		// Update the file's data transaction ID
-		fileMetaData.dataTxId = transaction.id;
+		// Convert to JSON string
+		const secondaryFileMetaDataJSON = JSON.stringify(secondaryFileMetaDataTags);
 
-		// Create the File Uploader object
-		const uploader = await arweave.createDataUploader(transaction);
+		// Private file, so it must be encrypted
+		const driveKey: Buffer = await deriveDriveKey(
+			user.dataProtectionKey,
+			file.entity.driveId,
+			user.walletPrivateKey
+		);
+		const fileKey: Buffer = await deriveFileKey(file.entity.entityId, driveKey);
+		const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
+			fileKey,
+			Buffer.from(secondaryFileMetaDataJSON)
+		);
 
-		return { fileMetaData, uploader };
+		// Update the file privacy metadata
+		file.entity.cipherIV = encryptedData.cipherIV;
+		file.entity.cipher = encryptedData.cipher;
+		dataItem = await arweave.prepareArFSMetaDataItemTransaction(user, file, encryptedData.data);
+
+		if (dataItem != null) {
+			console.log('SUCCESS %s data item was created with TX %s', file.path, dataItem.id);
+			// Set the file metadata to syncing
+			file.entity.syncStatus = 2;
+			file.entity.txId = dataItem.id;
+			return { file, dataItem };
+		} else {
+			return null;
+		}
 	} catch (err) {
 		console.log(err);
+		console.log('Error uploading file metadata item');
 		return null;
 	}
 }
-export async function newArFSPublicFileData(
+// Takes a buffer and ArFS File Metadata and creates an ArFS Data Transaction using V2 Transaction with proper GQL tags
+
+export async function newArFSFileData(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData,
+	file: clientTypes.ArFSLocalFile,
 	fileData: Buffer
-): Promise<{ fileMetaData: types.ArFSFileMetaData; uploader: TransactionUploader } | null> {
+): Promise<{ file: clientTypes.ArFSLocalFile; uploader: TransactionUploader } | null> {
 	try {
 		// The file is public
-		console.log(
-			'Uploading the PUBLIC file %s (%d bytes) at %s to the Permaweb',
-			fileMetaData.filePath,
-			fileMetaData.fileSize
-		);
+		console.log('Uploading the PUBLIC file %s (%d bytes) at %s to the Permaweb', file.path, file.size);
 
 		// Create the Arweave transaction.  It will add the correct ArFS tags depending if it is public or private
-		const transaction = await arweave.prepareArFSDataTransaction(user, fileData, fileMetaData);
+		const transaction = await arweave.prepareArFSDataTransaction(user, fileData, file);
 
 		// Update the file's data transaction ID
-		fileMetaData.dataTxId = transaction.id;
+		file.data.txId = transaction.id;
 
 		// Create the File Uploader object
 		const uploader = await arweave.createDataUploader(transaction);
 
-		return { fileMetaData, uploader };
+		return { file, uploader };
 	} catch (err) {
 		console.log(err);
 		return null;
@@ -298,40 +223,40 @@ export async function newArFSPublicFileData(
 }
 export async function newArFSPrivateFileData(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData
-): Promise<{ fileMetaData: types.ArFSFileMetaData; uploader: TransactionUploader } | null> {
+	file: clientTypes.ArFSLocalPrivateFile
+): Promise<{ file: clientTypes.ArFSLocalPrivateFile; uploader: TransactionUploader } | null> {
 	try {
 		// The file is private and we must encrypt
 		console.log(
 			'Encrypting and uploading the PRIVATE file %s (%d bytes) at %s to the Permaweb',
-			fileMetaData.filePath,
-			fileMetaData.fileSize
+			file.path,
+			file.size
 		);
 		// Derive the drive and file keys in order to encrypt it with ArFS encryption
 		const driveKey: Buffer = await deriveDriveKey(
 			user.dataProtectionKey,
-			fileMetaData.driveId,
+			file.entity.driveId,
 			user.walletPrivateKey
 		);
-		const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
+		const fileKey: Buffer = await deriveFileKey(file.entity.entityId, driveKey);
 
 		// Encrypt the data with the file key
-		const encryptedData: types.ArFSEncryptedData = await getFileAndEncrypt(fileKey, fileMetaData.filePath);
+		const encryptedData: types.ArFSEncryptedData = await getFileAndEncrypt(fileKey, file.path);
 
 		// Update the file metadata
-		fileMetaData.dataCipherIV = encryptedData.cipherIV;
-		fileMetaData.cipher = encryptedData.cipher;
+		file.entity.cipherIV = encryptedData.cipherIV;
+		file.entity.cipher = encryptedData.cipher;
 
 		// Create the Arweave transaction.  It will add the correct ArFS tags depending if it is public or private
-		const transaction = await arweave.prepareArFSDataTransaction(user, encryptedData.data, fileMetaData);
+		const transaction = await arweave.prepareArFSDataTransaction(user, encryptedData.data, file);
 
 		// Update the file's data transaction ID
-		fileMetaData.dataTxId = transaction.id;
+		file.data.txId = transaction.id;
 
 		// Create the File Uploader object
 		const uploader = await arweave.createDataUploader(transaction);
 
-		return { fileMetaData, uploader };
+		return { file, uploader };
 	} catch (err) {
 		console.log(err);
 		return null;
@@ -340,59 +265,95 @@ export async function newArFSPrivateFileData(
 // Takes ArFS File (or folder) Metadata and creates an ArFS MetaData Transaction using V2 Transaction with proper GQL tags
 export async function newArFSFileMetaData(
 	user: types.ArDriveUser,
-	fileMetaData: types.ArFSFileMetaData
-): Promise<{ fileMetaData: types.ArFSFileMetaData; uploader: TransactionUploader } | null> {
+	file: clientTypes.ArFSLocalFile
+): Promise<{ file: clientTypes.ArFSLocalFile; uploader: TransactionUploader } | null> {
 	let transaction;
 	let secondaryFileMetaDataTags = {};
 	try {
 		// create secondary metadata, used to further ID the file (with encryption if necessary)
-		if (fileMetaData.entityType === 'folder') {
+		if (file.entity.entityType === 'folder') {
 			// create secondary metadata specifically for a folder
 			secondaryFileMetaDataTags = {
-				name: fileMetaData.fileName
+				name: file.entity.name
 			};
-		} else if (fileMetaData.entityType === 'file') {
+		} else if (file.entity.entityType === 'file') {
 			secondaryFileMetaDataTags = {
-				name: fileMetaData.fileName,
-				size: fileMetaData.fileSize,
-				lastModifiedDate: fileMetaData.lastModifiedDate,
-				dataTxId: fileMetaData.dataTxId,
-				dataContentType: fileMetaData.contentType
+				name: file.entity.name,
+				size: file.size,
+				lastModifiedDate: file.entity.unixTime,
+				dataTxId: file.data.txId,
+				dataContentType: file.data.contentType
 			};
 		}
 
 		// Convert to JSON string
 		const secondaryFileMetaDataJSON = JSON.stringify(secondaryFileMetaDataTags);
-		if (fileMetaData.isPublic === 1) {
-			// Public file, do not encrypt
-			transaction = await arweave.prepareArFSMetaDataTransaction(user, fileMetaData, secondaryFileMetaDataJSON);
-		} else {
-			// Private file, so the metadata must be encrypted
-			// Get the drive and file key needed for encryption
-			const driveKey: Buffer = await deriveDriveKey(
-				user.dataProtectionKey,
-				fileMetaData.driveId,
-				user.walletPrivateKey
-			);
-			const fileKey: Buffer = await deriveFileKey(fileMetaData.fileId, driveKey);
-			const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
-				fileKey,
-				Buffer.from(secondaryFileMetaDataJSON)
-			);
-
-			// Update the file privacy metadata
-			fileMetaData.metaDataCipherIV = encryptedData.cipherIV;
-			fileMetaData.cipher = encryptedData.cipher;
-			transaction = await arweave.prepareArFSMetaDataTransaction(user, fileMetaData, encryptedData.data);
-		}
+		// Public file, do not encrypt
+		transaction = await arweave.prepareArFSMetaDataTransaction(user, file, secondaryFileMetaDataJSON);
 
 		// Update the file's data transaction ID
-		fileMetaData.metaDataTxId = transaction.id;
+		file.entity.txId = transaction.id;
 
 		// Create the File Uploader object
 		const uploader = await arweave.createDataUploader(transaction);
 
-		return { fileMetaData, uploader };
+		return { file, uploader };
+	} catch (err) {
+		console.log(err);
+		return null;
+	}
+}
+export async function newArFSPrivateFileMetaData(
+	user: types.ArDriveUser,
+	file: clientTypes.ArFSLocalPrivateFile
+): Promise<{ file: clientTypes.ArFSLocalPrivateFile; uploader: TransactionUploader } | null> {
+	let transaction;
+	let secondaryFileMetaDataTags = {};
+	try {
+		// create secondary metadata, used to further ID the file (with encryption if necessary)
+		if (file.entity.entityType === 'folder') {
+			// create secondary metadata specifically for a folder
+			secondaryFileMetaDataTags = {
+				name: file.entity.name
+			};
+		} else if (file.entity.entityType === 'file') {
+			secondaryFileMetaDataTags = {
+				name: file.entity.name,
+				size: file.size,
+				lastModifiedDate: file.entity.unixTime,
+				dataTxId: file.data.txId,
+				dataContentType: file.entity.contentType
+			};
+		}
+
+		// Convert to JSON string
+		const secondaryFileMetaDataJSON = JSON.stringify(secondaryFileMetaDataTags);
+
+		// Private file, so the metadata must be encrypted
+		// Get the drive and file key needed for encryption
+		const driveKey: Buffer = await deriveDriveKey(
+			user.dataProtectionKey,
+			file.entity.driveId,
+			user.walletPrivateKey
+		);
+		const fileKey: Buffer = await deriveFileKey(file.entity.entityId, driveKey);
+		const encryptedData: types.ArFSEncryptedData = await fileEncrypt(
+			fileKey,
+			Buffer.from(secondaryFileMetaDataJSON)
+		);
+
+		// Update the file privacy metadata
+		file.entity.cipherIV = encryptedData.cipherIV;
+		file.entity.cipher = encryptedData.cipher;
+		transaction = await arweave.prepareArFSMetaDataTransaction(user, file, encryptedData.data);
+
+		// Update the file's data transaction ID
+		file.entity.txId = transaction.id;
+
+		// Create the File Uploader object
+		const uploader = await arweave.createDataUploader(transaction);
+
+		return { file, uploader };
 	} catch (err) {
 		console.log(err);
 		return null;
@@ -402,72 +363,24 @@ export async function newArFSFileMetaData(
 // Creates an new Drive transaction and uploader using ArFS Metadata
 export async function newArFSDriveMetaData(
 	user: types.ArDriveUser,
-	driveMetaData: types.ArFSDriveMetaData
-): Promise<{ driveMetaData: types.ArFSDriveMetaData; uploader: TransactionUploader } | null> {
-	try {
-		let transaction: Transaction;
-		// Create a JSON file, containing necessary drive metadata
-		const driveMetaDataTags = {
-			name: driveMetaData.driveName,
-			rootFolderId: driveMetaData.rootFolderId
-		};
-
-		// Convert to JSON string
-		const driveMetaDataJSON = JSON.stringify(driveMetaDataTags);
-
-		// Check if the drive is public or private
-		if (driveMetaData.drivePrivacy === 'private') {
-			console.log('Creating a new Private Drive (name: %s) on the Permaweb', driveMetaData.driveName);
-			const driveKey: Buffer = await deriveDriveKey(
-				user.dataProtectionKey,
-				driveMetaData.driveId,
-				user.walletPrivateKey
-			);
-			const encryptedDriveMetaData: types.ArFSEncryptedData = await driveEncrypt(
-				driveKey,
-				Buffer.from(driveMetaDataJSON)
-			);
-			driveMetaData.cipher = encryptedDriveMetaData.cipher;
-			driveMetaData.cipherIV = encryptedDriveMetaData.cipherIV;
-			transaction = await arweave.prepareArFSDriveTransaction(user, encryptedDriveMetaData.data, driveMetaData);
-		} else {
-			// The drive is public
-			console.log('Creating a new Public Drive (name: %s) on the Permaweb', driveMetaData.driveName);
-			transaction = await arweave.prepareArFSDriveTransaction(user, driveMetaDataJSON, driveMetaData);
-		}
-		// Update the file's data transaction ID
-		driveMetaData.metaDataTxId = transaction.id;
-
-		// Create the File Uploader object
-		const uploader = await arweave.createDataUploader(transaction);
-
-		return { driveMetaData, uploader };
-	} catch (err) {
-		console.log(err);
-		console.log('Error creating new ArFS Drive transaction and uploader %s', driveMetaData.driveName);
-		return null;
-	}
-}
-export async function newArFSPublicDriveMetaData(
-	user: types.ArDriveUser,
-	driveMetaData: types.ArFSDriveMetaData
-): Promise<{ driveMetaData: types.ArFSDriveMetaData; uploader: TransactionUploader } | null> {
+	driveMetaData: clientTypes.ArFSLocalDriveEntity
+): Promise<{ driveMetaData: clientTypes.ArFSLocalDriveEntity; uploader: TransactionUploader } | null> {
 	try {
 		// Create a JSON file, containing necessary drive metadata
 		const driveMetaDataTags = {
-			name: driveMetaData.driveName,
-			rootFolderId: driveMetaData.rootFolderId
+			name: driveMetaData.entity.name,
+			rootFolderId: driveMetaData.entity.rootFolderId
 		};
 
 		// Convert to JSON string
 		const driveMetaDataJSON = JSON.stringify(driveMetaDataTags);
 
 		// The drive is public
-		console.log('Creating a new Public Drive (name: %s) on the Permaweb', driveMetaData.driveName);
+		console.log('Creating a new Public Drive (name: %s) on the Permaweb', driveMetaData.entity.name);
 		const transaction = await arweave.prepareArFSDriveTransaction(user, driveMetaDataJSON, driveMetaData);
 
 		// Update the file's data transaction ID
-		driveMetaData.metaDataTxId = transaction.id;
+		driveMetaData.entity.txId = transaction.id;
 
 		// Create the File Uploader object
 		const uploader = await arweave.createDataUploader(transaction);
@@ -475,42 +388,42 @@ export async function newArFSPublicDriveMetaData(
 		return { driveMetaData, uploader };
 	} catch (err) {
 		console.log(err);
-		console.log('Error creating new ArFS Drive transaction and uploader %s', driveMetaData.driveName);
+		console.log('Error creating new ArFS Drive transaction and uploader %s', driveMetaData.entity.name);
 		return null;
 	}
 }
 
 export async function newArFSPrivateDriveMetaData(
 	user: types.ArDriveUser,
-	driveMetaData: types.ArFSDriveMetaData
-): Promise<{ driveMetaData: types.ArFSDriveMetaData; uploader: TransactionUploader } | null> {
+	driveMetaData: clientTypes.ArFSLocalPrivateDriveEntity
+): Promise<{ driveMetaData: clientTypes.ArFSLocalPrivateDriveEntity; uploader: TransactionUploader } | null> {
 	try {
 		// Create a JSON file, containing necessary drive metadata
 		const driveMetaDataTags = {
-			name: driveMetaData.driveName,
-			rootFolderId: driveMetaData.rootFolderId
+			name: driveMetaData.entity.name,
+			rootFolderId: driveMetaData.entity.rootFolderId
 		};
 
 		// Convert to JSON string
 		const driveMetaDataJSON = JSON.stringify(driveMetaDataTags);
 
 		// Check if the drive is public or private
-		console.log('Creating a new Private Drive (name: %s) on the Permaweb', driveMetaData.driveName);
+		console.log('Creating a new Private Drive (name: %s) on the Permaweb', driveMetaData.entity.name);
 		const driveKey: Buffer = await deriveDriveKey(
 			user.dataProtectionKey,
-			driveMetaData.driveId,
+			driveMetaData.entity.driveId,
 			user.walletPrivateKey
 		);
 		const encryptedDriveMetaData: types.ArFSEncryptedData = await driveEncrypt(
 			driveKey,
 			Buffer.from(driveMetaDataJSON)
 		);
-		driveMetaData.cipher = encryptedDriveMetaData.cipher;
-		driveMetaData.cipherIV = encryptedDriveMetaData.cipherIV;
+		driveMetaData.entity.cipher = encryptedDriveMetaData.cipher;
+		driveMetaData.entity.cipherIV = encryptedDriveMetaData.cipherIV;
 		const transaction = await arweave.prepareArFSDriveTransaction(user, encryptedDriveMetaData.data, driveMetaData);
 
 		// Update the file's data transaction ID
-		driveMetaData.metaDataTxId = transaction.id;
+		driveMetaData.entity.txId = transaction.id;
 
 		// Create the File Uploader object
 		const uploader = await arweave.createDataUploader(transaction);
@@ -518,69 +431,75 @@ export async function newArFSPrivateDriveMetaData(
 		return { driveMetaData, uploader };
 	} catch (err) {
 		console.log(err);
-		console.log('Error creating new ArFS Drive transaction and uploader %s', driveMetaData.driveName);
+		console.log('Error creating new ArFS Drive transaction and uploader %s', driveMetaData.entity.name);
 		return null;
 	}
 }
 
 // Creates a new drive depending on the privacy
 // This should be in the Drive class
-export async function newArFSDrive(
-	driveName: string,
-	drivePrivacy: string,
-	login?: string
-): Promise<types.ArFSDriveMetaData> {
+export async function newArFSDrive(driveName: string, login: string): Promise<clientTypes.ArFSLocalDriveEntity> {
 	const driveId = uuidv4();
 	const rootFolderId = uuidv4();
 	const unixTime = Math.round(Date.now() / 1000);
-	if (drivePrivacy === 'private') {
-		console.log('Creating a new private drive %s | %s', driveName, driveId);
-		const drive: types.ArFSDriveMetaData = {
-			id: 0,
-			login,
+
+	// Drive is public
+	console.log('Creating a new public drive %s | %s', driveName, driveId);
+	const drive: clientTypes.ArFSLocalDriveEntity = {
+		id: 0,
+		owner: login,
+		isLocal: 1,
+		entity: {
 			appName: appName,
 			appVersion: appVersion,
-			driveName,
-			rootFolderId,
+			arFS: arFSVersion,
+			contentType: '',
+			driveId: driveId,
+			drivePrivacy: 'public',
+			rootFolderId: rootFolderId,
+			syncStatus: 0,
+			txId: '0',
+			unixTime: unixTime,
+			name: '',
+			entityType: ''
+		}
+	};
+
+	return drive;
+}
+export async function newArFSPrivateDrive(
+	driveName: string,
+	login?: string
+): Promise<clientTypes.ArFSLocalDriveEntity> {
+	const driveId = uuidv4();
+	const rootFolderId = uuidv4();
+	const unixTime = Math.round(Date.now() / 1000);
+	console.log('Creating a new private drive %s | %s', driveName, driveId);
+	const drive: clientTypes.ArFSLocalPrivateDriveEntity = {
+		id: 0,
+		owner: login != undefined ? login : '',
+		isLocal: 1,
+		entity: {
+			appName: appName,
+			appVersion: appVersion,
+			arFS: arFSVersion,
+			contentType: '',
+			driveId: driveId,
+			drivePrivacy: 'personal',
+			rootFolderId: rootFolderId,
+			syncStatus: 0,
+			txId: '0',
+			unixTime: unixTime,
+			name: '',
+			entityType: '',
 			cipher: cipher,
 			cipherIV: '',
-			unixTime,
-			arFS: arFSVersion,
-			driveId,
-			driveSharing: 'personal',
-			drivePrivacy: 'private',
-			driveAuthMode: 'password',
-			metaDataTxId: '0',
-			metaDataSyncStatus: 0, // Drives are lazily created once the user performs an initial upload
-			isLocal: 1
-		};
-		return drive;
-	} else {
-		// Drive is public
-		console.log('Creating a new public drive %s | %s', driveName, driveId);
-		const drive: types.ArFSDriveMetaData = {
-			id: 0,
-			login,
-			appName: appName,
-			appVersion: appVersion,
-			driveName,
-			rootFolderId,
-			cipher: '',
-			cipherIV: '',
-			unixTime,
-			arFS: arFSVersion,
-			driveId,
-			driveSharing: 'personal',
-			drivePrivacy: 'public',
-			driveAuthMode: '',
-			metaDataTxId: '0',
-			metaDataSyncStatus: 0, // Drives are lazily created once the user performs an initial upload
-			isLocal: 1
-		};
-		return drive;
-	}
-}
+			driveAuthMode: 'password'
+		}
+	};
 
+	return drive;
+}
 // This will create and upload a new drive entity and its root folder
 export async function createAndUploadArFSDriveAndRootFolder(
 	user: types.ArDriveUser,
@@ -599,34 +518,29 @@ export async function createAndUploadArFSDriveAndRootFolder(
 		}
 
 		// Create a new ArFS Drive Root Folder entity
-		const newRootFolderMetaData: types.ArFSFileMetaData = {
+		const newRootFolderMetaData: clientTypes.ArFSLocalFile = {
 			id: 0,
-			login: user.login,
-			appName: appName,
-			appVersion: appVersion,
-			unixTime: Math.round(Date.now() / 1000),
-			contentType: 'application/json',
-			entityType: 'folder',
-			driveId: newDrive.driveId,
-			parentFolderId: '0', // Must be set to 0 to indicate it is a root folder
-			fileId: newDrive.rootFolderId,
-			fileSize: 0,
-			fileName: driveName,
-			fileHash: '',
-			filePath: '',
-			fileVersion: 0,
-			cipher: '',
-			dataCipherIV: '',
-			metaDataCipherIV: '',
-			lastModifiedDate: Math.round(Date.now() / 1000),
-			isLocal: 0,
-			isPublic,
-			permaWebLink: '',
-			metaDataTxId: '0',
-			dataTxId: '0',
-			fileDataSyncStatus: 0,
-			fileMetaDataSyncStatus: 0,
-			cloudOnly: 0
+			owner: user.login,
+			hash: '',
+			isLocal: 1,
+			path: '',
+			size: 0,
+			version: 0,
+			entity: {
+				appName: appName,
+				appVersion: appVersion,
+				unixTime: Math.round(Date.now() / 1000),
+				contentType: 'application/json',
+				entityType: 'folder',
+				driveId: newDrive.entity.driveId,
+				parentFolderId: '0', // Must be set to 0 to indicate it is a root folder
+				entityId: newDrive.entity.rootFolderId,
+				name: driveName,
+				syncStatus: 0,
+				txId: '0',
+				arFS: arFSVersion
+			},
+			data: { appName: appName, appVersion: appVersion, contentType: '', syncStatus: 0, txId: '0', unixTime: 0 }
 		};
 
 		// Prepare the root folder transaction.  It will encrypt the data if necessary.
@@ -655,19 +569,19 @@ export async function createAndUploadArFSDriveAndRootFolder(
 // Derives a file key from the drive key and formats it into a Private file sharing link using the file id
 export async function createArFSPrivateFileSharingLink(
 	user: types.ArDriveUser,
-	fileToShare: types.ArFSFileMetaData
+	fileToShare: clientTypes.ArFSLocalFile
 ): Promise<string> {
 	let fileSharingUrl = '';
 	try {
 		const driveKey: Buffer = await deriveDriveKey(
 			user.dataProtectionKey,
-			fileToShare.driveId,
+			fileToShare.entity.driveId,
 			user.walletPrivateKey
 		);
-		const fileKey: Buffer = await deriveFileKey(fileToShare.fileId, driveKey);
+		const fileKey: Buffer = await deriveFileKey(fileToShare.entity.entityId, driveKey);
 		fileSharingUrl = stagingAppUrl.concat(
 			'/#/file/',
-			fileToShare.fileId,
+			fileToShare.entity.entityId,
 			'/view?fileKey=',
 			fileKey.toString('base64')
 		);
@@ -680,10 +594,10 @@ export async function createArFSPrivateFileSharingLink(
 }
 
 // Creates a Public file sharing link using the File Id.
-export async function createArFSPublicFileSharingLink(fileToShare: types.ArFSFileMetaData): Promise<string> {
+export async function createArFSPublicFileSharingLink(fileToShare: clientTypes.ArFSLocalFile): Promise<string> {
 	let fileSharingUrl = '';
 	try {
-		fileSharingUrl = stagingAppUrl.concat('/#/file/', fileToShare.fileId, '/view');
+		fileSharingUrl = stagingAppUrl.concat('/#/file/', fileToShare.entity.entityId, '/view');
 	} catch (err) {
 		console.log(err);
 		console.log('Cannot generate Public File Sharing Link');
@@ -693,10 +607,12 @@ export async function createArFSPublicFileSharingLink(fileToShare: types.ArFSFil
 }
 
 // Creates a Public drive sharing link using the Drive Id
-export async function createArFSPublicDriveSharingLink(driveToShare: types.ArFSDriveMetaData): Promise<string> {
+export async function createArFSPublicDriveSharingLink(
+	driveToShare: clientTypes.ArFSLocalDriveEntity
+): Promise<string> {
 	let driveSharingUrl = '';
 	try {
-		driveSharingUrl = stagingAppUrl.concat('/#/drives/', driveToShare.driveId);
+		driveSharingUrl = stagingAppUrl.concat('/#/drives/', driveToShare.entity.driveId);
 	} catch (err) {
 		console.log(err);
 		console.log('Cannot generate Public Drive Sharing Link');
