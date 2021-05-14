@@ -24,13 +24,18 @@ export interface ArFSLocalMetaData {
 	owner: string; // the public arweave wallet address that owns this drive eg. FAxDUPlFfJrLDl6BvUlPw3EJOEEeg6WQbhiWidU7ueY
 	hash: string; // A SHA512 hash of a the file or a hash of a folder's contents using the folder-hash package, https://www.npmjs.com/package/folder-hash
 	path: string; // The local OS path of the file.  Should this be a path object?
+	size: number; // The size in bytes of the underlying file data
 	version: number; // The version number of the underlying file data.  Should be incremented by 1 for each version found for a given fileId.
 	isLocal: number; // Indicates if the drive is being synchronized locally or not.  0 for "no", 1 for "yes"
 }
 
 // Contains metadata needed to synchronize folder's metadata
 export interface ArFSLocalFolder extends ArFSLocalMetaData {
-	entity: arfsTypes.ArFSFileFolderEntity | arfsTypes.ArFSPrivateFileFolderEntity; // The underlying ArFS Entity
+	entity: arfsTypes.ArFSFileFolderEntity; // The underlying ArFS Entity
+}
+
+export interface ArFSLocalPrivateFolder extends ArFSLocalMetaData {
+	entity: arfsTypes.ArFSPrivateFileFolderEntity; // The underlying ArFS Entity
 }
 
 // Contains metadata needed to synchronize a file's metadata and its data

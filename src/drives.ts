@@ -1,4 +1,5 @@
 import * as arweave from './arweave';
+import * as arweavePrivate from './arweave_private';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
 
 import { ArDriveUser, ArFSEncryptedData } from './types/base_Types';
@@ -6,6 +7,7 @@ import { ArFSLocalFile, ArFSLocalDriveEntity, ArFSLocalPrivateDriveEntity } from
 import { newArFSFileMetaData } from './arfs';
 import { v4 as uuidv4 } from 'uuid';
 import { deriveDriveKey, driveEncrypt } from './crypto';
+import { JWKInterface } from 'arweave/node/lib/wallet';
 
 export const appName = 'ArDrive-Desktop';
 export const webAppName = 'ArDrive-Web';
@@ -15,7 +17,7 @@ export const cipher = 'AES256-GCM';
 
 // Creates an new Drive transaction and uploader using ArFS Metadata
 export async function newArFSDriveMetaData(
-	user: ArDriveUser,
+	walletPrivateKey: JWKInterface,
 	driveMetaData: ArFSLocalDriveEntity
 ): Promise<{ driveMetaData: ArFSLocalDriveEntity; uploader: TransactionUploader } | null> {
 	try {
@@ -30,7 +32,11 @@ export async function newArFSDriveMetaData(
 
 		// The drive is public
 		console.log('Creating a new Public Drive (name: %s) on the Permaweb', driveMetaData.entity.name);
-		const transaction = await arweave.prepareArFSDriveTransaction(user, driveMetaDataJSON, driveMetaData);
+		const transaction = await arweave.createDriveTransaction(
+			driveMetaDataJSON,
+			driveMetaData.entity,
+			walletPrivateKey
+		);
 
 		// Update the file's data transaction ID
 		driveMetaData.entity.txId = transaction.id;
@@ -48,6 +54,7 @@ export async function newArFSDriveMetaData(
 
 export async function newArFSPrivateDriveMetaData(
 	user: ArDriveUser,
+	walletPrivateKey: JWKInterface,
 	driveMetaData: ArFSLocalPrivateDriveEntity
 ): Promise<{ driveMetaData: ArFSLocalPrivateDriveEntity; uploader: TransactionUploader } | null> {
 	try {
@@ -70,7 +77,11 @@ export async function newArFSPrivateDriveMetaData(
 		const encryptedDriveMetaData: ArFSEncryptedData = await driveEncrypt(driveKey, Buffer.from(driveMetaDataJSON));
 		driveMetaData.entity.cipher = encryptedDriveMetaData.cipher;
 		driveMetaData.entity.cipherIV = encryptedDriveMetaData.cipherIV;
-		const transaction = await arweave.prepareArFSDriveTransaction(user, encryptedDriveMetaData.data, driveMetaData);
+		const transaction = await arweavePrivate.createPrivateDriveTransaction(
+			encryptedDriveMetaData.data,
+			driveMetaData.entity,
+			walletPrivateKey
+		);
 
 		// Update the file's data transaction ID
 		driveMetaData.entity.txId = transaction.id;
@@ -150,6 +161,7 @@ export async function newArFSPrivateDrive(driveName: string, login?: string): Pr
 // This will create and upload a new drive entity and its root folder
 export async function createAndUploadArFSDriveAndRootFolder(
 	user: ArDriveUser,
+	walletPrivateKey: JWKInterface,
 	driveName: string,
 	drivePrivacy: string
 ): Promise<boolean> {
@@ -158,7 +170,7 @@ export async function createAndUploadArFSDriveAndRootFolder(
 		const newDrive = await newArFSDrive(driveName, drivePrivacy);
 
 		// Prepare the drive transaction.  It will encrypt the data if necessary.
-		const preppedDrive = await newArFSDriveMetaData(user, newDrive);
+		const preppedDrive = await newArFSDriveMetaData(walletPrivateKey, newDrive);
 		let isPublic = 1;
 		if (drivePrivacy === 'private') {
 			isPublic = 0;
@@ -167,7 +179,7 @@ export async function createAndUploadArFSDriveAndRootFolder(
 		// Create a new ArFS Drive Root Folder entity
 		const newRootFolderMetaData: ArFSLocalFile = {
 			id: 0,
-			owner: user.login,
+			owner: user.walletPublicKey,
 			hash: '',
 			isLocal: 1,
 			path: '',
@@ -191,7 +203,7 @@ export async function createAndUploadArFSDriveAndRootFolder(
 		};
 
 		// Prepare the root folder transaction.  It will encrypt the data if necessary.
-		const preppedRootFolder = await newArFSFileMetaData(user, newRootFolderMetaData);
+		const preppedRootFolder = await newArFSFileMetaData(walletPrivateKey, newRootFolderMetaData);
 
 		// Upload the drive entity transaction
 		if (preppedDrive !== null && preppedRootFolder !== null) {
