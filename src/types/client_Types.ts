@@ -46,7 +46,7 @@ export interface ArFSLocalFile extends ArFSLocalMetaData {
 
 export interface ArFSLocalPrivateFile extends ArFSLocalMetaData {
 	entity: arfsTypes.ArFSPrivateFileFolderEntity;
-	data: arfsTypes.ArFSFileData;
+	data: arfsTypes.ArFSPrivateFileData;
 }
 
 // ArFSBundles are only uploaded.  Once a bundle is uploaded, it is unpacked into individual transactions and graphQL objects.  ArDrive clients synchronize with thos individual objects, and not the bundle itself.  This means that less information is required for an ArFSBundle

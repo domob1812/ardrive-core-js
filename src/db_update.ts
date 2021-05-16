@@ -1,106 +1,188 @@
 import { run } from './db';
-import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData } from './types/base_Types';
-
+import { ArDriveUser } from './types/base_Types';
+import {
+	ArFSLocalFile,
+	ArFSLocalDriveEntity,
+	ArFSLocalPrivateFile,
+	ArFSLocalPrivateDriveEntity
+} from './types/client_Types';
 ////////////////////////
 // NEW ITEM FUNCTIONS //
 ////////////////////////
-export const addFileToSyncTable = (file: ArFSFileMetaData) => {
+export const addFileToSyncTable = (file: ArFSLocalFile) => {
+	const { id, data, entity, hash, owner, path, size, version, isLocal } = file;
 	const {
-		login,
 		appName,
 		appVersion,
-		unixTime,
+		arFS,
 		contentType,
-		entityType,
 		driveId,
+		entityId,
+		entityType,
+		name,
 		parentFolderId,
-		fileId,
-		filePath,
-		fileName,
-		fileHash,
-		fileSize,
-		lastModifiedDate,
-		fileVersion,
-		isPublic,
-		isLocal,
-		metaDataTxId,
-		dataTxId,
-		fileDataSyncStatus,
-		fileMetaDataSyncStatus,
-		permaWebLink,
-		cipher,
-		dataCipherIV,
-		metaDataCipherIV
-	} = file;
+		syncStatus,
+		txId,
+		unixTime
+	} = entity;
+	const {
+		appName: dataAppName,
+		appVersion: dataAppVersion,
+		contentType: dataContentType,
+		syncStatus: dataSyncStatus,
+		txId: dataTxId,
+		unixTime: dataUnixTime
+	} = data;
 	return run(
-		'REPLACE INTO Sync (login, appName, appVersion, unixTime, contentType, entityType, driveId, parentFolderId, fileId, filePath, fileName, fileHash, fileSize, lastModifiedDate, fileVersion, isPublic, isLocal, metaDataTxId, dataTxId, fileDataSyncStatus, fileMetaDataSyncStatus, permaWebLink, cipher, dataCipherIV, metaDataCipherIV) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+		'REPLACE INTO Sync (login, appName, appVersion, unixTime, contentType, entityType, driveId, parentFolderId, fileId, filePath, fileName, fileHash, fileSize, lastModifiedDate, fileVersion, isPublic, isLocal, metaDataTxId, dataTxId, fileDataSyncStatus, fileMetaDataSyncStatus, permaWebLink) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, )',
 		[
-			login,
+			owner,
 			appName,
 			appVersion,
-			unixTime,
+			unixTime, //No last modified in new type
 			contentType,
 			entityType,
 			driveId,
 			parentFolderId,
-			fileId,
-			filePath,
-			fileName,
-			fileHash,
-			fileSize,
-			lastModifiedDate,
-			fileVersion,
-			isPublic,
+			entityId,
+			path,
+			name,
+			hash,
+			size,
+			unixTime,
+			version,
+			1, //isLocal : Is this a bool or num?
 			isLocal,
-			metaDataTxId,
+			txId,
 			dataTxId,
-			fileDataSyncStatus,
-			fileMetaDataSyncStatus,
-			permaWebLink,
-			cipher,
-			dataCipherIV,
-			metaDataCipherIV
+			dataSyncStatus,
+			syncStatus,
+			'' //No permalink in new type
 		]
 	);
 };
 
-export const addDriveToDriveTable = (drive: ArFSDriveMetaData) => {
+export const addPrivateFileToSyncTable = (file: ArFSLocalPrivateFile) => {
+	const { id, data, entity, hash, owner, path, size, version, isLocal } = file;
 	const {
-		login,
 		appName,
 		appVersion,
-		driveName,
-		rootFolderId,
-		cipher,
-		cipherIV,
-		unixTime,
-		arFS,
+		contentType,
 		driveId,
-		driveSharing,
-		drivePrivacy,
-		driveAuthMode,
-		metaDataTxId,
-		metaDataSyncStatus,
-		isLocal
-	} = drive;
+		entityId,
+		entityType,
+		name,
+		parentFolderId,
+		syncStatus,
+		txId,
+		unixTime,
+		cipher,
+		cipherIV
+	} = entity;
+	const { syncStatus: dataSyncStatus, txId: dataTxId, cipherIV: dataCipherIV } = data;
 	return run(
-		'REPLACE INTO Drive (login, appName, appVersion, driveName, rootFolderId, cipher, cipherIV, unixTime, arFS, driveId, driveSharing, drivePrivacy, driveAuthMode, metaDataTxId, metaDataSyncStatus, isLocal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+		'REPLACE INTO Sync (login, appName, appVersion, unixTime, contentType, entityType, driveId, parentFolderId, fileId, filePath, fileName, fileHash, fileSize, lastModifiedDate, fileVersion, isPublic, isLocal, metaDataTxId, dataTxId, fileDataSyncStatus, fileMetaDataSyncStatus, permaWebLink, cipher, dataCipherIV, metaDataCipherIV) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
 		[
-			login,
+			owner,
 			appName,
 			appVersion,
-			driveName,
+			unixTime, //No last modified in new type
+			contentType,
+			entityType,
+			driveId,
+			parentFolderId,
+			entityId,
+			path,
+			name,
+			hash,
+			size,
+			unixTime,
+			version,
+			0, //isLocal : Is this a bool or num?
+			isLocal,
+			txId,
+			dataTxId,
+			dataSyncStatus,
+			syncStatus,
+			'', //No permalink in new type
+			cipher,
+			dataCipherIV,
+			cipherIV
+		]
+	);
+};
+
+export const addDriveToDriveTable = (drive: ArFSLocalDriveEntity) => {
+	const { entity, id, isLocal, owner } = drive;
+	const {
+		appName,
+		appVersion,
+		arFS,
+		contentType,
+		driveId,
+		drivePrivacy,
+		entityType,
+		name,
+		rootFolderId,
+		syncStatus,
+		txId,
+		unixTime
+	} = entity;
+	return run(
+		'REPLACE INTO Drive (login, appName, appVersion, driveName, rootFolderId, unixTime, arFS, driveId,  drivePrivacy,  metaDataTxId, metaDataSyncStatus, isLocal) VALUES (?, ?,  ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+		[
+			owner,
+			appName,
+			appVersion,
+			name,
+			rootFolderId,
+			unixTime,
+			arFS,
+			driveId,
+			drivePrivacy,
+			txId,
+			syncStatus,
+			isLocal
+		]
+	);
+};
+
+export const addPrivateDriveToDriveTable = (drive: ArFSLocalPrivateDriveEntity) => {
+	const { entity, id, isLocal, owner } = drive;
+	const {
+		appName,
+		appVersion,
+		arFS,
+		contentType,
+		driveId,
+		drivePrivacy,
+		entityType,
+		name,
+		rootFolderId,
+		syncStatus,
+		txId,
+		unixTime,
+		cipher,
+		cipherIV,
+		driveAuthMode
+	} = entity;
+	return run(
+		'REPLACE INTO Drive (login, appName, appVersion, driveName, rootFolderId, cipher, cipherIV, unixTime, arFS, driveId, drivePrivacy, driveAuthMode, metaDataTxId, metaDataSyncStatus, isLocal) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+		[
+			owner,
+			appName,
+			appVersion,
+			name,
 			rootFolderId,
 			cipher,
 			cipherIV,
 			unixTime,
 			arFS,
 			driveId,
-			driveSharing,
 			drivePrivacy,
 			driveAuthMode,
-			metaDataTxId,
-			metaDataSyncStatus,
+			txId,
+			syncStatus,
 			isLocal
 		]
 	);
