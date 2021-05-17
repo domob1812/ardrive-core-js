@@ -19,7 +19,7 @@ export interface ArFSLocalPrivateDriveEntity {
 }
 
 // Contains all of the metadata needed to for an ArFS client to sync a file or folder
-export interface ArFSLocalMetaData {
+export class ArFSLocalMetaData {
 	id: number; // an identifier that can be used in any underlying database, eg. 1, 2, 3 etc.
 	owner: string; // the public arweave wallet address that owns this drive eg. FAxDUPlFfJrLDl6BvUlPw3EJOEEeg6WQbhiWidU7ueY
 	hash: string; // A SHA512 hash of a the file or a hash of a folder's contents using the folder-hash package, https://www.npmjs.com/package/folder-hash
@@ -27,6 +27,36 @@ export interface ArFSLocalMetaData {
 	size: number; // The size in bytes of the underlying file data
 	version: number; // The version number of the underlying file data.  Should be incremented by 1 for each version found for a given fileId.
 	isLocal: number; // Indicates if the drive is being synchronized locally or not.  0 for "no", 1 for "yes"
+
+	constructor(id: number, owner: string, hash: string, path: string, size: number, version: number, isLocal: number) {
+		this.id = id;
+		this.owner = owner;
+		this.hash = hash;
+		this.path = path;
+		this.size = size;
+		this.version = version;
+		this.isLocal = isLocal;
+	}
+
+	static From(
+		id?: number,
+		owner?: string,
+		hash?: string,
+		path?: string,
+		size?: number,
+		version?: number,
+		isLocal?: number
+	): ArFSLocalMetaData {
+		return new ArFSLocalMetaData(
+			id ?? 0,
+			owner ?? '',
+			hash ?? '',
+			path ?? '',
+			size ?? 0,
+			version ?? 0,
+			isLocal ?? 1
+		);
+	}
 }
 
 // Contains metadata needed to synchronize folder's metadata
@@ -39,9 +69,111 @@ export interface ArFSLocalPrivateFolder extends ArFSLocalMetaData {
 }
 
 // Contains metadata needed to synchronize a file's metadata and its data
-export interface ArFSLocalFile extends ArFSLocalMetaData {
+export class ArFSLocalFile extends ArFSLocalMetaData {
 	entity: arfsTypes.ArFSFileFolderEntity;
 	data: arfsTypes.ArFSFileData;
+
+	constructor(
+		id: number,
+		owner: string,
+		hash: string,
+		path: string,
+		size: number,
+		version: number,
+		isLocal: number,
+		entityId: string,
+		parentFolderId: string,
+		appName: string,
+		appVersion: string,
+		arFS: string,
+		contentType: string,
+		driveId: string,
+		entityType: string,
+		name: string,
+		syncStatus: number,
+		txId: string,
+		unixTime: number,
+		dataContentType: string,
+		dataSyncStatus: number,
+		dataTxId: string,
+		dataUnixTime: number
+	) {
+		super(id, owner, hash, path, size, version, isLocal);
+		this.entity = {
+			appName,
+			appVersion,
+			arFS,
+			contentType,
+			driveId,
+			entityId,
+			entityType,
+			name,
+			parentFolderId,
+			syncStatus,
+			txId,
+			unixTime
+		};
+		this.data = {
+			appName,
+			appVersion,
+			contentType: dataContentType,
+			syncStatus: dataSyncStatus,
+			txId: dataTxId,
+			unixTime: dataUnixTime
+		};
+	}
+
+	static From(
+		id?: number,
+		owner?: string,
+		hash?: string,
+		path?: string,
+		size?: number,
+		version?: number,
+		isLocal?: number,
+		entityId?: string,
+		parentFolderId?: string,
+		appName?: string,
+		appVersion?: string,
+		arFS?: string,
+		contentType?: string,
+		driveId?: string,
+		entityType?: string,
+		name?: string,
+		syncStatus?: number,
+		txId?: string,
+		unixTime?: number,
+		dataContentType?: string,
+		dataSyncStatus?: number,
+		dataTxId?: string,
+		dataUnixTime?: number
+	): ArFSLocalFile {
+		return new ArFSLocalFile(
+			id ?? 0,
+			owner ?? '',
+			hash ?? '',
+			path ?? '',
+			size ?? 0,
+			version ?? 0,
+			isLocal ?? 0,
+			entityId ?? '',
+			parentFolderId ?? '',
+			appName ?? '',
+			appVersion ?? '',
+			arFS ?? '',
+			contentType ?? '',
+			driveId ?? '',
+			entityType ?? '',
+			name ?? '',
+			syncStatus ?? 0,
+			txId ?? '',
+			unixTime ?? 0,
+			dataContentType ?? '',
+			dataSyncStatus ?? 0,
+			dataTxId ?? '',
+			dataUnixTime ?? 0
+		);
+	}
 }
 
 export interface ArFSLocalPrivateFile extends ArFSLocalMetaData {

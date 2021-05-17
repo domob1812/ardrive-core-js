@@ -1,17 +1,16 @@
 // index.js
 import * as mime from 'mime-types';
 import * as fs from 'fs';
-import * as types from './types/base_Types';
 import { ArFSLocalFile, ArFSLocalDriveEntity, ArFSLocalPrivateDriveEntity } from './types/client_Types';
 import * as getDb from './db_get';
 import * as updateDb from './db_update';
 import fetch from 'node-fetch';
 import path, { dirname } from 'path';
-import { checksumFile, deriveDriveKey, deriveFileKey } from './crypto';
+import { checksumFile } from './crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { hashElement, HashElementOptions } from 'folder-hash';
 import { Wallet } from './types/arfs_Types';
-import { stagingAppUrl, appName, appVersion, arFSVersion, cipher } from './constants';
+import { appName, appVersion, arFSVersion, cipher } from './constants';
 
 // Pauses application
 export async function sleep(ms: number): Promise<number> {
@@ -374,59 +373,6 @@ export async function createNewPrivateDrive(login: string, driveName: string): P
 	};
 	console.log('Creating a new private drive for %s, %s | %s', login, driveName, driveId);
 	return drive;
-}
-
-// Derives a file key from the drive key and formats it into a Private file sharing link using the file id
-export async function createPrivateFileSharingLink(
-	user: types.ArDriveUser,
-	fileToShare: ArFSLocalFile
-): Promise<string> {
-	let fileSharingUrl = '';
-	try {
-		const driveKey: Buffer = await deriveDriveKey(
-			user.dataProtectionKey,
-			fileToShare.entity.driveId,
-			user.walletPrivateKey
-		);
-		const fileKey: Buffer = await deriveFileKey(fileToShare.entity.entityId, driveKey);
-		fileSharingUrl = stagingAppUrl.concat(
-			'/#/file/',
-			fileToShare.entity.entityId,
-			'/view?fileKey=',
-			fileKey.toString('base64')
-		);
-	} catch (err) {
-		console.log(err);
-		console.log('Cannot generate Private File Sharing Link');
-		fileSharingUrl = 'Error';
-	}
-	return fileSharingUrl;
-}
-
-// Creates a Public file sharing link using the File Id.
-export async function createPublicFileSharingLink(fileToShare: ArFSLocalFile): Promise<string> {
-	let fileSharingUrl = '';
-	try {
-		fileSharingUrl = stagingAppUrl.concat('/#/file/', fileToShare.entity.entityId, '/view');
-	} catch (err) {
-		console.log(err);
-		console.log('Cannot generate Public File Sharing Link');
-		fileSharingUrl = 'Error';
-	}
-	return fileSharingUrl;
-}
-
-// Creates a Public drive sharing link using the Drive Id
-export async function createPublicDriveSharingLink(driveToShare: ArFSLocalDriveEntity): Promise<string> {
-	let driveSharingUrl = '';
-	try {
-		driveSharingUrl = stagingAppUrl.concat('/#/drives/', driveToShare.entity.driveId);
-	} catch (err) {
-		console.log(err);
-		console.log('Cannot generate Public Drive Sharing Link');
-		driveSharingUrl = 'Error';
-	}
-	return driveSharingUrl;
 }
 
 export async function Utf8ArrayToStr(array: any): Promise<string> {
