@@ -9,7 +9,7 @@ import { setFilePath, setPermaWebFileToCloudOnly, setPermaWebFileToOverWrite, ad
 import * as chokidar from 'chokidar';
 import { v4 as uuidv4 } from 'uuid';
 import { ArDriveUser } from './types/base_Types';
-import { ArFSLocalFile, ArFSLocalDriveEntity } from './types/client_Types';
+import { ArFSLocalPrivateFile, ArFSLocalPrivateDriveEntity } from './types/client_Types';
 import { hashElement, HashElementOptions } from 'folder-hash';
 
 //const { hashElement } = require('folder-hash');
@@ -18,9 +18,10 @@ interface FolderWatchRef {
 	status: string;
 	stop(): Promise<void>;
 }
-
+// Note: Unsure if exlusive private memebers are necessary here. There doesnt seem to be much of a
+// difference from the public
 // Queues a single file in the database.  Determines if the file is new, has been renamed or moved.
-async function queueFile(filePath: string, login: string, driveId: string): Promise<any> {
+async function queuePrivateFile(filePath: string, login: string, driveId: string): Promise<any> {
 	// Check to see if the file is ready
 	let stats = null;
 	const extension = extname(filePath).toLowerCase();
@@ -36,7 +37,7 @@ async function queueFile(filePath: string, login: string, driveId: string): Prom
 	if (extension !== '.enc' && stats.size !== 0 && !fileName.startsWith('~$')) {
 		// Check if the parent folder has been added to the DB first
 		const parentFolderPath = dirname(filePath);
-		const parentFolder: ArFSLocalFile = await getDb.getFolderFromSyncTable(driveId, parentFolderPath);
+		const parentFolder: ArFSLocalPrivateFile = await getDb.getFolderFromSyncTable(driveId, parentFolderPath);
 		let parentFolderId = '';
 		if (parentFolder !== undefined) {
 			parentFolderId = parentFolder.entity.entityId;
@@ -121,7 +122,7 @@ async function queueFile(filePath: string, login: string, driveId: string): Prom
 		const contentType = extToMime(filePath);
 		const fileId = uuidv4();
 		const fileSize = stats.size;
-		const newFileToQueue: ArFSLocalFile = ArFSLocalFile.From({
+		const newFileToQueue: ArFSLocalPrivateFile = ArFSLocalPrivateFile.From({
 			id: 0,
 			owner: login,
 			appName,
@@ -150,7 +151,7 @@ async function queueFile(filePath: string, login: string, driveId: string): Prom
 }
 
 // Queues a single folder in the database.  Determines if the folder has been renamed or moved.
-async function queueFolder(
+async function queuePrivateFolder(
 	folderPath: string,
 	driveRootFolderPath: string,
 	login: string,
@@ -185,8 +186,6 @@ async function queueFolder(
 		const options: HashElementOptions = { encoding: 'hex', folders: { exclude: ['.*'] } };
 		const folderHash = await hashElement(folderPath, options);
 
-		// Get the Drive ID and Privacy status
-
 		const unixTime = Math.round(Date.now() / 1000);
 		const contentType = 'application/json';
 		let fileId = uuidv4();
@@ -200,7 +199,7 @@ async function queueFolder(
 		// Check if its parent folder has been added.  If not, lets add it first
 		let parentFolderId = '';
 		const parentFolderPath = dirname(folderPath);
-		const parentFolder: ArFSLocalFile = await getDb.getFolderFromSyncTable(driveId, parentFolderPath);
+		const parentFolder: ArFSLocalPrivateFile = await getDb.getFolderFromSyncTable(driveId, parentFolderPath);
 		if (parentFolder !== undefined) {
 			parentFolderId = parentFolder.entity.entityId;
 		}
@@ -221,7 +220,7 @@ async function queueFolder(
 			fileId = renamedFolder.fileId;
 		}
 
-		const folderToQueue: ArFSLocalFile = ArFSLocalFile.From({
+		const folderToQueue: ArFSLocalPrivateFile = ArFSLocalPrivateFile.From({
 			id: 0,
 			owner: login,
 			appName,
@@ -249,7 +248,7 @@ async function queueFolder(
 }
 
 // Watches a local folder for any file or folder changes.
-export function watchFolder(login: string, driveRootFolderPath: string, driveId: string): FolderWatchRef {
+export function watchPrivateFolder(login: string, driveRootFolderPath: string, driveId: string): FolderWatchRef {
 	const log = console.log.bind(console);
 	const watcher = chokidar.watch(driveRootFolderPath, {
 		persistent: true,
@@ -264,10 +263,10 @@ export function watchFolder(login: string, driveRootFolderPath: string, driveId:
 		}
 	});
 	watcher
-		.on('add', async (path: string) => queueFile(path, login, driveId))
-		.on('change', async (path: string) => queueFile(path, login, driveId))
+		.on('add', async (path: string) => queuePrivateFile(path, login, driveId))
+		.on('change', async (path: string) => queuePrivateFile(path, login, driveId))
 		.on('unlink', async (path: string) => log(`File ${path} has been removed`))
-		.on('addDir', async (path: string) => queueFolder(path, driveRootFolderPath, login, driveId))
+		.on('addDir', async (path: string) => queuePrivateFolder(path, driveRootFolderPath, login, driveId))
 		.on('unlinkDir', async (path: string) => log(`Directory ${path} has been removed`))
 		.on('error', (error: string) => log(`Watcher error: ${error}`));
 	const ref: FolderWatchRef = {
@@ -278,13 +277,15 @@ export function watchFolder(login: string, driveRootFolderPath: string, driveId:
 }
 
 // Initiates the folder watcher
-export async function startWatchingFolders(user: ArDriveUser): Promise<any> {
-	const drives: ArFSLocalDriveEntity[] = await getDb.getAllPersonalDrivesByLoginFromDriveTable(user.login);
+export async function startWatchingPrivateFolders(user: ArDriveUser): Promise<any> {
+	const drives: ArFSLocalPrivateDriveEntity[] = getDb.getAllPersonalDrivesByLoginFromDriveTable(user.login);
 	const stoppers: Array<() => Promise<void>> = [];
 	if (drives !== undefined) {
-		drives.forEach(async (drive: ArFSLocalDriveEntity) => {
-			const rootFolder: ArFSLocalFile = await getDb.getDriveRootFolderFromSyncTable(drive.entity.rootFolderId);
-			const { status, stop } = watchFolder(user.login, rootFolder.path, drive.entity.driveId);
+		drives.forEach(async (drive: ArFSLocalPrivateDriveEntity) => {
+			const rootFolder: ArFSLocalPrivateFile = await getDb.getDriveRootFolderFromSyncTable(
+				drive.entity.rootFolderId
+			);
+			const { status, stop } = watchPrivateFolder(user.login, rootFolder.path, drive.entity.driveId);
 			stoppers.push(stop);
 			console.log(
 				'%s %s drive: %s driveId: %s',
