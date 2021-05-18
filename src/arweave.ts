@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { JWKInterface } from 'arweave/node/lib/wallet';
-import { appName, appVersion, arFSVersion, weightedRandom } from './daemon/common';
+import { appName, appVersion, arFSVersion, weightedRandom } from './common';
 import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData } from './types/base_Types';
 import {
 	ArFSDriveEntity,

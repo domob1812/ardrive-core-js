@@ -1,4 +1,4 @@
-import * as common from './daemon/common';
+import * as common from './common';
 import * as types from './types/base_Types';
 import * as arfsTypes from './types/arfs_Types';
 import * as gqlTypes from './types/gql_Types';
