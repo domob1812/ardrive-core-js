@@ -109,6 +109,7 @@ export interface ArFSPrivateDriveEntity extends ArFSDriveEntity {
 export interface ArFSFileFolderEntity extends ArFSEntity {
 	parentFolderId: string; // the uuid of the parent folder that this entity sits within.  Folder Entities used for the drive root must not have a parent folder ID, eg. 41800747-a852-4dc9-9078-6c20f85c0f3a
 	entityId: string; // the unique folder identifier, created with uuidv4 https://www.npmjs.com/package/uuidv4 eg. 41800747-a852-4dc9-9078-6c20f85c0f3a
+	lastModifiedDate: number; // the last modified date of the file or folder as seconds since unix epoch
 }
 
 // Used for private Files/Folders only.

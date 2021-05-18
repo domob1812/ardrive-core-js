@@ -92,6 +92,7 @@ export interface ArFSLocalFileArguments {
 	dataSyncStatus?: number;
 	dataTxId?: string;
 	dataUnixTime?: number;
+	lastModifiedDate?: number;
 }
 // Contains metadata needed to synchronize a file's metadata and its data
 export class ArFSLocalFile extends ArFSLocalMetaData {
@@ -121,7 +122,8 @@ export class ArFSLocalFile extends ArFSLocalMetaData {
 		dataContentType: string,
 		dataSyncStatus: number,
 		dataTxId: string,
-		dataUnixTime: number
+		dataUnixTime: number,
+		lastModifiedDate: number
 	) {
 		super(id, owner, hash, path, size, version, isLocal);
 		this.entity = {
@@ -136,7 +138,8 @@ export class ArFSLocalFile extends ArFSLocalMetaData {
 			parentFolderId,
 			syncStatus,
 			txId,
-			unixTime
+			unixTime,
+			lastModifiedDate
 		};
 		this.data = {
 			appName,
@@ -171,7 +174,8 @@ export class ArFSLocalFile extends ArFSLocalMetaData {
 		dataContentType,
 		dataSyncStatus,
 		dataTxId,
-		dataUnixTime
+		dataUnixTime,
+		lastModifiedDate
 	}: ArFSLocalFileArguments): ArFSLocalFile {
 		return new ArFSLocalFile(
 			id ?? 0,
@@ -196,7 +200,8 @@ export class ArFSLocalFile extends ArFSLocalMetaData {
 			dataContentType ?? '',
 			dataSyncStatus ?? 0,
 			dataTxId ?? '',
-			dataUnixTime ?? 0
+			dataUnixTime ?? 0,
+			lastModifiedDate ?? 0
 		);
 	}
 }
@@ -236,7 +241,8 @@ export class ArFSLocalPrivateFile extends ArFSLocalMetaData {
 		cipher: string,
 		cipherIV: string,
 		dataCipher: string,
-		dataCipherIV: string
+		dataCipherIV: string,
+		lastModifiedDate: number
 	) {
 		super(id, owner, hash, path, size, version, isLocal);
 		this.entity = {
@@ -253,7 +259,8 @@ export class ArFSLocalPrivateFile extends ArFSLocalMetaData {
 			txId,
 			unixTime,
 			cipher,
-			cipherIV
+			cipherIV,
+			lastModifiedDate
 		};
 		this.data = {
 			appName,
@@ -293,7 +300,8 @@ export class ArFSLocalPrivateFile extends ArFSLocalMetaData {
 		cipher,
 		cipherIV,
 		dataCipher,
-		dataCipherIV
+		dataCipherIV,
+		lastModifiedDate
 	}: ArFSLocalPrivateFileArguments): ArFSLocalPrivateFile {
 		return new ArFSLocalPrivateFile(
 			id ?? 0,
@@ -322,7 +330,8 @@ export class ArFSLocalPrivateFile extends ArFSLocalMetaData {
 			cipher ?? '',
 			cipherIV ?? '',
 			dataCipher ?? '',
-			dataCipherIV ?? ''
+			dataCipherIV ?? '',
+			lastModifiedDate ?? 0
 		);
 	}
 }
