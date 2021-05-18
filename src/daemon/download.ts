@@ -5,12 +5,12 @@ import * as fs from 'fs';
 import * as common from './common';
 import * as getDb from './db_get';
 import * as updateDb from './db_update';
-import * as gql from './gql';
-import { GQLEdgeInterface, GQLTagInterface } from './types/gql_Types';
+import * as gql from '../gql';
+import { GQLEdgeInterface, GQLTagInterface } from '../types/gql_Types';
 import path, { dirname } from 'path';
-import { getLatestBlockHeight, getTransactionData } from './arweave';
-import { checksumFile, deriveDriveKey, deriveFileKey, fileDecrypt } from './crypto';
-import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData } from './types/base_Types';
+import { getLatestBlockHeight, getTransactionData } from '../arweave';
+import { checksumFile, deriveDriveKey, deriveFileKey, fileDecrypt } from '../crypto';
+import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData } from '../types/base_Types';
 import { createWriteStream } from 'fs';
 
 import Axios from 'axios';

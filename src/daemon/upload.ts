@@ -1,10 +1,10 @@
 import * as fs from 'fs';
-import * as arweave from './arweave';
-import * as types from './types/base_Types';
+import * as arweave from '../arweave';
+import * as types from '../types/base_Types';
 import * as updateDb from './db_update';
 import * as getDb from './db_get';
 import * as common from './common';
-import { deriveDriveKey, deriveFileKey, driveEncrypt, fileEncrypt, getFileAndEncrypt } from './crypto';
+import { deriveDriveKey, deriveFileKey, driveEncrypt, fileEncrypt, getFileAndEncrypt } from '../crypto';
 import { deleteFromSyncTable } from './db_delete';
 import { DataItemJson } from 'arweave-bundles';
 

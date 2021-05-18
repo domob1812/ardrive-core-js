@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import { JWKInterface } from 'arweave/node/lib/wallet';
-import { appName, appVersion, arFSVersion, weightedRandom } from './common';
+import { appName, appVersion, arFSVersion, weightedRandom } from './daemon/common';
 import { ArDriveUser, ArFSDriveMetaData, ArFSFileMetaData } from './types/base_Types';
 import {
 	ArFSDriveEntity,
@@ -18,6 +18,7 @@ import ArweaveBundles from 'arweave-bundles';
 import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
 import Transaction from 'arweave/node/lib/transaction';
+import fetch from 'node-fetch';
 
 // ArDrive Profit Sharing Community Smart Contract
 const communityTxId = '-8A6RexFkpfWwuyVO98wzSFZh0d6VJuI-buTJvlwOJQ';

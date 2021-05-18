@@ -1,15 +1,15 @@
 // index.js
 import * as mime from 'mime-types';
 import * as fs from 'fs';
-import * as types from './types/base_Types';
+import * as types from '../types/base_Types';
 import * as getDb from './db_get';
 import * as updateDb from './db_update';
 import fetch from 'node-fetch';
 import path, { dirname } from 'path';
-import { checksumFile, deriveDriveKey, deriveFileKey } from './crypto';
+import { checksumFile, deriveDriveKey, deriveFileKey } from '../crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { hashElement, HashElementOptions } from 'folder-hash';
-import { Wallet } from './types/arfs_Types';
+import { Wallet } from '../types/arfs_Types';
 export const prodAppUrl = 'https://app.ardrive.io';
 export const stagingAppUrl = 'https://staging.ardrive.io';
 export const gatewayURL = 'https://arweave.net/';
