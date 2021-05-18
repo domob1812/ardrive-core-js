@@ -1,21 +1,4 @@
 import * as guards from './type_guards';
-export interface ArDriveUser {
-	login: string;
-	dataProtectionKey: string;
-	walletPrivateKey: string;
-	walletPublicKey: string;
-	syncFolderPath: string;
-	autoSyncApproval: number;
-}
-
-export interface UploadBatch {
-	totalArDrivePrice: number;
-	totalUSDPrice: number;
-	totalSize: string;
-	totalNumberOfFileUploads: number;
-	totalNumberOfMetaDataUploads: number;
-	totalNumberOfFolderUploads: number;
-}
 
 export interface ArFSRootFolderMetaData {
 	metaDataTxId: string;
