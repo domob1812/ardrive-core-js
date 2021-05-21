@@ -1,6 +1,5 @@
 // arfs.js
 import * as arweave from './arweave';
-import * as fs from 'fs';
 import * as clientTypes from './types/client_Types';
 import { DataItemJson } from 'arweave-bundles';
 import { TransactionUploader } from 'arweave/node/lib/transaction-uploader';
@@ -9,12 +8,12 @@ import { JWKInterface } from './types/arfs_Types';
 // Tags and creates a new data item (ANS-102) to be bundled and uploaded
 export async function newArFSFileDataItem(
 	walletPrivateKey: JWKInterface,
-	file: clientTypes.ArFSLocalFile
+	file: clientTypes.ArFSLocalFile,
+	fileData: Buffer
 ): Promise<{ file: clientTypes.ArFSLocalFile; dataItem: DataItemJson } | null> {
 	let dataItem: DataItemJson | string;
 	try {
 		console.log('Bundling %s (%d bytes) to the Permaweb', file.path, file.size);
-		const fileData = fs.readFileSync(file.path);
 		dataItem = await arweave.createFileDataItemTransaction(fileData, file.data, walletPrivateKey);
 
 		if (typeof dataItem != 'string') {
@@ -108,6 +107,7 @@ export async function newArFSFileData(
 		return null;
 	}
 }
+
 // Takes ArFS File (or folder) Metadata and creates an ArFS MetaData Transaction using V2 Transaction with proper GQL tags
 export async function newArFSFileMetaData(
 	walletPrivateKey: JWKInterface,
