@@ -2452,3 +2452,107 @@ function serializedArray<T>(a: T[], serializeItem: (i: T) => string) {
 }
 
 new Query<arfsTypes.ArFSDriveEntity>();
+
+// Gets all of the drive entities for a users wallet
+export async function getAllPublicDriveEntitiesLoki(
+	owner: string,
+	lastBlockHeight: number
+): Promise<arfsTypes.ArFSDriveEntity[] | string> {
+	const graphQLURL = primaryGraphQLURL;
+	const allDrives: arfsTypes.ArFSDriveEntity[] = [];
+	try {
+		// Search last 5 blocks minimum
+		if (lastBlockHeight > 5) {
+			lastBlockHeight -= 5;
+		}
+
+		// Create the Graphql Query to search for all drives relating to the User wallet
+		const query = {
+			query: `query {
+      			transactions(
+				block: {min: ${lastBlockHeight}}
+				first: 100
+				owners: ["${owner}"]
+				tags: [
+					{ name: "Entity-Type", values: "drive" }
+					{ name: "Drive-Privacy", values: "public" }]) 
+				{
+					edges {
+						node {
+							id
+							tags {
+								name
+								value
+							}
+						}
+					}
+      			}
+    		}`
+		};
+
+		// Call the Arweave Graphql Endpoint
+		const response = await arweave.api.post(graphQLURL, query);
+		const { data } = response.data;
+		const { transactions } = data;
+		const { edges } = transactions;
+
+		// Iterate through each returned transaction and pull out the drive IDs
+		edges.array.forEach((edge: gqlTypes.GQLEdgeInterface) => {
+			const { node } = edge;
+			const { tags } = node;
+			const drive: arfsTypes.ArFSDriveEntity = {
+				appName: '',
+				appVersion: '',
+				arFS: '',
+				contentType: 'application/json',
+				driveId: '',
+				drivePrivacy: 'public',
+				entityType: 'drive',
+				name: '',
+				rootFolderId: '',
+				txId: '',
+				unixTime: 0,
+				syncStatus: 0
+			};
+			// Iterate through each tag and pull out each drive ID as well the drives privacy status
+			tags.forEach((tag: gqlTypes.GQLTagInterface) => {
+				const key = tag.name;
+				const { value } = tag;
+				switch (key) {
+					case 'App-Name':
+						drive.appName = value;
+						break;
+					case 'App-Version':
+						drive.appVersion = value;
+						break;
+					case 'ArFS':
+						drive.arFS = value;
+						break;
+					case 'Content-Type':
+						drive.contentType = value;
+						break;
+					case 'Drive-Id':
+						drive.driveId = value;
+						break;
+					case 'Drive-Privacy':
+						drive.drivePrivacy = value;
+						break;
+					case 'Unix-Time':
+						drive.unixTime = +value;
+						break;
+					default:
+						break;
+				}
+			});
+
+			// Capture the TX of the public drive metadata tx
+			drive.txId = node.id;
+			allDrives.push(drive);
+		});
+		return allDrives;
+	} catch (err) {
+		console.log(err);
+		console.log('CORE GQL ERROR: Cannot get folder entity');
+		return 'CORE GQL ERROR: Cannot get drive ids';
+	}
+}
