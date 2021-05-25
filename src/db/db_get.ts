@@ -1,16 +1,51 @@
 import { get, all } from './db_common';
 
+/* New Get Functions 
+
+getDrive
+
+
+*/
+
 ///////////////////////////////
 // GET SINGLE ITEM FUNCTIONS //
 ///////////////////////////////
+// YES
+// getLocalFolderByPath, getLocalPrivateFolderByPath
+// Used in files.ts to match a found folder to a record in the local database, using the folders path.  folder paths are always unique.
+// Split to public/private methods, returning LocalFolder/LocalPrivateFolder types
 export const getFolderFromSyncTable = (driveId: string, filePath: string) => {
 	return get(`SELECT * FROM Sync WHERE driveId = ? AND filePath = ? AND entityType = 'folder'`, [driveId, filePath]);
 };
 
+// YES
+// getLocalFolderByHash, getLocalPrivateFolderByHash
+// Used in files.ts to match a found folder to a record in the local database, specifically used to determine if a folder has been MOVED by comparing their hash
+// Split to public/private methods, returning LocalFolder/LocalPrivateFolder types
+export const getFolderByHashFromSyncTable = (driveId: string, fileHash: string) => {
+	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileHash = ? AND entityType = 'folder'`, [driveId, fileHash]);
+};
+
+// YES
+// getLocalFolderBySize, getLocalPrivateFolderBySize
+// Used in files.ts to match a found folder to a record in the local database, specifically used to determine if a folder has been RENAMED by checking its INode aka filesize
+// Split to public/private methods, returning LocalFolder/LocalPrivateFolder types
+export const getFolderByInodeFromSyncTable = (driveId: string, fileSize: number) => {
+	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileSize = ? AND entityType = 'folder' AND isLocal = 1`, [
+		driveId,
+		fileSize
+	]);
+};
+
+// NO, not used anywhere
 export const checkIfExistsInSyncTable = (fileHash: string, fileName: string, fileId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileHash = ? AND fileName AND fileId = ?`, [fileHash, fileName, fileId]);
 };
 
+// YES
+// getLocalFileByHashAndParent, getLocalPrivateFileByHashAndParent
+// Used in files.ts to match a found file to a record in the local database, specifically used to determine if a file has been RENAMED by comparing hash and path
+// Split to public/private methods, returning LocalFile/LocalPrivateFile types
 export const getByFileHashAndParentFolderFromSyncTable = (driveId: string, fileHash: string, folderPath: string) => {
 	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileHash = ? AND filePath LIKE ?`, [
 		driveId,
@@ -19,25 +54,26 @@ export const getByFileHashAndParentFolderFromSyncTable = (driveId: string, fileH
 	]);
 };
 
-export const getFolderByHashFromSyncTable = (driveId: string, fileHash: string) => {
-	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileHash = ? AND entityType = 'folder'`, [driveId, fileHash]);
-};
-
-export const getFolderByInodeFromSyncTable = (driveId: string, fileSize: number) => {
-	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileSize = ? AND entityType = 'folder' AND isLocal = 1`, [
-		driveId,
-		fileSize
-	]);
-};
-
+// YES
+// getLocalFileByHashAndName, getLocalPrivateFileByHashAndName
+// Used in files.ts to match a found file to a record in the local database, specifically used to determine if a file has been MOVED by seeing if a similarly named file and hash are already in the database
+// Split to public/private methods, returning LocalFile/LocalPrivateFile types
 export const getByFileHashAndFileNameFromSyncTable = (driveId: string, fileHash: string, fileName: string) => {
 	return get(`SELECT * FROM Sync WHERE driveId = ? AND fileHash = ? AND fileName = ?`, [driveId, fileHash, fileName]);
 };
 
+// YES
+// getLocalFileByPath, getLocalPrivateFileByPath
+// Used in files.ts to match a found file to a record in the local database, specifically used to determine if it is a new version of an existing file by using a descending sort of the fileVersion
+// Split to public/private methods, returning LocalFile/LocalPrivateFile types
 export const getByFilePathFromSyncTable = (driveId: string, filePath: string) => {
 	return get(`SELECT * FROM Sync WHERE driveId = ? AND filePath = ? ORDER BY fileVersion DESC`, [driveId, filePath]);
 };
 
+// YES
+// getExactLocalFile, getExactLocalPrivateFile
+// Used in files.ts to match a found file to a record in the local database, specifically used to match an exact file via filename, hash and parent folder
+// Split to public/private methods, returning LocalFile/LocalPrivateFile types
 export const getByFileNameAndHashAndParentFolderIdFromSyncTable = (
 	driveId: string,
 	fileName: string,
@@ -52,56 +88,92 @@ export const getByFileNameAndHashAndParentFolderIdFromSyncTable = (
 	]);
 };
 
+// YES
+// getLatestLocalFile, getLatestLocalPrivateFile, getLatestLocalFolder, getLatestLocalPrivateFolder
+// Gets the latest file or folder version of a given entityId
+// Needs to be split to public/private files/folders and return specific objects
 export const getLatestFileVersionFromSyncTable = (fileId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? ORDER BY unixTime DESC`, [fileId]);
 };
 
-// Returns the n-1 version of a file
+// YES
+// getPreviousLocalFile, getPreviousLocalPrivateFile, getPreviousLocalFolder, getPreviousLocalPrivateFolder
+// Returns the n-1 version of a file or folder (aka the previous version) using a given entityId
+// Needs to be split to public/private files/folders and return specific objects
 export const getPreviousFileVersionFromSyncTable = (fileId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? ORDER BY unixTime DESC LIMIT 1 OFFSET 1`, [fileId]);
 };
 
+// NO
+// Duplicate above
 export const getLatestFolderVersionFromSyncTable = (folderId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? ORDER BY unixTime DESC`, [folderId]);
 };
 
+// YES
+// getLocalDriveRootFolder, getLocalPrivateDriveRootFolder
 // Gets a drive's root folder by selecting the folder with a parent ID of 0
+// Needs to be split to public/private drives
 export const getRootFolderPathFromSyncTable = (driveId: string) => {
 	return get(`SELECT filePath from Sync WHERE parentFolderId = '0' and driveId = ?`, [driveId]);
 };
 
+// NO
+// Can use getLatestLocalFolder, getLatestLocalPrivateFolder defined above
 export const getDriveRootFolderFromSyncTable = (folderId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? AND entityType = 'folder'`, [folderId]);
 };
 
+// YES
+// getLocalDrive, getLocalPrivateDrive
+// Gets a Local drive entity by using the driveId
+// Needs to be split into public/private
 export const getDriveInfoFromSyncTable = (id: string) => {
 	return get(`SELECT driveId, fileId, fileName FROM Sync WHERE id = ?`, [id]);
 };
 
+// NO
+// Can use getLatestLocalFolder, getLatestLocalPrivateFolder defined above
 export const getFolderNameFromSyncTable = (fileId: string) => {
 	return get(`SELECT fileName FROM Sync WHERE fileId = ? ORDER BY unixTime DESC`, [fileId]);
 };
 
+// NO
+// Can use getLatestLocalFolder, getLatestLocalPrivateFolder defined above
 export const getFolderEntityFromSyncTable = (fileId: string) => {
 	return get(`SELECT entityType FROM Sync WHERE fileId = ?`, [fileId]);
 };
 
+// NO
+// Can use getLatestLocalFolder, getLatestLocalPrivateFolder defined above
 export const getFolderParentIdFromSyncTable = (fileId: string) => {
 	return get(`SELECT parentFolderId FROM Sync WHERE fileId = ? ORDER BY unixTime DESC`, [fileId]);
 };
 
+// NO
+// Can use getLatestLocalFolder, getLatestLocalPrivateFolder defined above
 export const getFileUploadTimeFromSyncTable = (id: number): Promise<number> => {
 	return get(`SELECT uploadTime FROM Sync WHERE id = ?`, [id]);
 };
 
+// YES
+// getBundle
+// Gets an ArFSBundle from the local database
 export const getBundleUploadTimeFromBundleTable = (id: number): Promise<number> => {
 	return get(`SELECT uploadTime FROM Bundle WHERE id = ?`, [id]);
 };
 
+// YES
+// getLocalFileByTx, getLocalPrivateFileByTx, getLocalFolderByTx, getLocalPrivateFolderByTx
+// Used to check if a file on arweave has already been synced into the database
+// split into public/private files and folders
 export const getByMetaDataTxFromSyncTable = (metaDataTxId: string) => {
 	return get(`SELECT * FROM Sync WHERE metaDataTxId = ?`, [metaDataTxId]);
 };
 
+// YES
+// getUserLastBlockHeight
+//
 export const getProfileLastBlockHeight = (login: string) => {
 	return get(`SELECT lastBlockHeight FROM Profile WHERE login = ?`, [login]);
 };
@@ -110,6 +182,9 @@ export const getDriveLastBlockHeight = (driveId: string) => {
 	return get(`SELECT lastBlockHeight FROM Drive WHERE driveId = ?`, [driveId]);
 };
 
+// YES
+// getUser
+// Used to get a user object from the database
 export const getUserFromProfileById = (id: string) => {
 	return get(`SELECT * FROM Profile WHERE id = ?`, [id]);
 };
