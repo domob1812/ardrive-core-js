@@ -90,16 +90,16 @@ export const getByFileNameAndHashAndParentFolderIdFromSyncTable = (
 
 // YES
 // getLatestLocalFile, getLatestLocalPrivateFile, getLatestLocalFolder, getLatestLocalPrivateFolder
-// Gets the latest file or folder version of a given entityId
-// Needs to be split to public/private files/folders and return specific objects
+// Used in download.ts and gets the latest file or folder version of a given entityId
+// Needs to be split to public/private files/folders and returns local public/private folder/file types
 export const getLatestFileVersionFromSyncTable = (fileId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? ORDER BY unixTime DESC`, [fileId]);
 };
 
 // YES
 // getPreviousLocalFile, getPreviousLocalPrivateFile, getPreviousLocalFolder, getPreviousLocalPrivateFolder
-// Returns the n-1 version of a file or folder (aka the previous version) using a given entityId
-// Needs to be split to public/private files/folders and return specific objects
+// Used in download.ts and returns the n-1 version of a file or folder (aka the previous version) using a given entityId
+// Needs to be split to public/private files/folders, returns local public/private folder types
 export const getPreviousFileVersionFromSyncTable = (fileId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? ORDER BY unixTime DESC LIMIT 1 OFFSET 1`, [fileId]);
 };
@@ -112,8 +112,8 @@ export const getLatestFolderVersionFromSyncTable = (folderId: string) => {
 
 // YES
 // getLocalDriveRootFolder, getLocalPrivateDriveRootFolder
-// Gets a drive's root folder by selecting the folder with a parent ID of 0
-// Needs to be split to public/private drives
+// Used in common.ts and gets a drive's root folder by selecting the folder with a parent ID of 0
+// Needs to be split to public/private drives, returns local public/private folder types
 export const getRootFolderPathFromSyncTable = (driveId: string) => {
 	return get(`SELECT filePath from Sync WHERE parentFolderId = '0' and driveId = ?`, [driveId]);
 };
@@ -124,10 +124,8 @@ export const getDriveRootFolderFromSyncTable = (folderId: string) => {
 	return get(`SELECT * FROM Sync WHERE fileId = ? AND entityType = 'folder'`, [folderId]);
 };
 
-// YES
-// getLocalDrive, getLocalPrivateDrive
-// Gets a Local drive entity by using the driveId
-// Needs to be split into public/private
+// NO
+// Can use getLocalDrive and getLocalPrivateDrive
 export const getDriveInfoFromSyncTable = (id: string) => {
 	return get(`SELECT driveId, fileId, fileName FROM Sync WHERE id = ?`, [id]);
 };
@@ -158,49 +156,63 @@ export const getFileUploadTimeFromSyncTable = (id: number): Promise<number> => {
 
 // YES
 // getBundle
-// Gets an ArFSBundle from the local database
+// Used in node.ts to get an ArFSBundle from the local database
 export const getBundleUploadTimeFromBundleTable = (id: number): Promise<number> => {
 	return get(`SELECT uploadTime FROM Bundle WHERE id = ?`, [id]);
 };
 
 // YES
 // getLocalFileByTx, getLocalPrivateFileByTx, getLocalFolderByTx, getLocalPrivateFolderByTx
-// Used to check if a file on arweave has already been synced into the database
-// split into public/private files and folders
+// Used in download.ts to check if a file on arweave has already been synced into the database
+// split into public/private files and folders, returns the Local Public/Private File/Folder types
 export const getByMetaDataTxFromSyncTable = (metaDataTxId: string) => {
 	return get(`SELECT * FROM Sync WHERE metaDataTxId = ?`, [metaDataTxId]);
 };
 
 // YES
 // getUserLastBlockHeight
-//
+// Used in download.ts to get the last blockheight synced for a user, specifically used to sync Drive Entities.
+// Only needs to return block height
 export const getProfileLastBlockHeight = (login: string) => {
 	return get(`SELECT lastBlockHeight FROM Profile WHERE login = ?`, [login]);
 };
 
+// YES
+// getUserLastBlockHeight
+// Used in download.ts to get the last blockheight synced for a user, specifically used to sync Drive Entities.
 export const getDriveLastBlockHeight = (driveId: string) => {
 	return get(`SELECT lastBlockHeight FROM Drive WHERE driveId = ?`, [driveId]);
 };
 
-// YES
-// getUser
-// Used to get a user object from the database
+// NO
 export const getUserFromProfileById = (id: string) => {
 	return get(`SELECT * FROM Profile WHERE id = ?`, [id]);
 };
 
+// YES
+// getUser
+// Used to get a user object from the database using their owner name aka arweave wallet public key and returns a user object including wallet
 export const getUserFromProfile = (login: string) => {
 	return get(`SELECT * FROM Profile WHERE login = ?`, [login]);
 };
 
+// YES
+// getUserWalletBalance
+// Used in the CLI and gets the locally saved wallet balance (in AR) for a given owner name
 export const getProfileWalletBalance = (login: string) => {
 	return get(`SELECT walletBalance FROM Profile WHERE login = ?`, [login]);
 };
 
+// NO
+// Can use new getUser
 export const getSyncFolderPathFromProfile = (login: string) => {
 	return get(`SELECT syncFolderPath FROM Profile WHERE login = ?`, [login]);
 };
 
+// YES
+// getLocalDrive, getLocalPrivateDrive
+// Gets a Local drive entity by using the driveId
+// Needs to be split into public/, returns public/private local drive types
 export const getDriveFromDriveTable = (driveId: string) => {
 	return get(`SELECT * FROM Drive WHERE driveId = ?`, [driveId]);
 };
@@ -208,6 +220,9 @@ export const getDriveFromDriveTable = (driveId: string) => {
 ///////////////////////////////
 // GET ALL ITEMS FUNCTIONS   //
 ///////////////////////////////
+
+// YES
+//
 export const getAllUploadedDrivesFromDriveTable = () => {
 	return all(`SELECT * FROM Drive WHERE metaDataSyncStatus = 2`);
 };
