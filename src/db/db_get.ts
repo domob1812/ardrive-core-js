@@ -211,7 +211,7 @@ export const getSyncFolderPathFromProfile = (login: string) => {
 
 // YES
 // getLocalDrive, getLocalPrivateDrive
-// Gets a Local drive entity by using the driveId
+// Used in download.ts and gets a Local drive entity by using the driveId
 // Needs to be split into public/, returns public/private local drive types
 export const getDriveFromDriveTable = (driveId: string) => {
 	return get(`SELECT * FROM Drive WHERE driveId = ?`, [driveId]);
@@ -222,21 +222,39 @@ export const getDriveFromDriveTable = (driveId: string) => {
 ///////////////////////////////
 
 // YES
-//
+// getAllRecentlyUploadedDrives, getAllRecentlyUploadedPrivateDrives
+// Used in node.ts and gets all drives for a user that have been uploaded to the arweave network, but not confirmed yet (syncStatus = 2)
+// Returns all Local Public/Private drives in an array
 export const getAllUploadedDrivesFromDriveTable = () => {
+	// should accept a user login
 	return all(`SELECT * FROM Drive WHERE metaDataSyncStatus = 2`);
 };
 
+// YES
+// getFilesToDownload, getPrivateFilesToDownload
+// Used in download.ts gets all queued files for download for a user, using several parameters
+// cloudOnly has to be false, or else we wouldnt download this file
+// isLocal also has to be false, indicating that we have to download this file
+// Returns all local Public/Private files to be downloaded in an array
 export const getFilesToDownload = (login: string) => {
 	return all(`SELECT * FROM Sync WHERE cloudOnly = 0 AND isLocal = 0 AND entityType = 'file' AND login = ?`, [login]);
 };
 
+// YES
+// getFoldersToCreate, getPrivateFilesToCreate
+// Used in download.ts gets all queued folders for creation for a user (since folders are just metadata and not downloaded), using several parameters
+// cloudOnly has to be false, or else we wouldnt download this file
+// isLocal also has to be false, indicating that we have to download this file
+// Returns all local Public/Private folders to be created in an array
 export const getFoldersToCreate = (login: string) => {
 	return all(`SELECT * FROM Sync WHERE cloudOnly = 0 AND isLocal = 0 AND entityType = 'folder' AND login = ?`, [
 		login
 	]);
 };
 
+// YES
+// getFilesFoldersByParent, getPrivateFilesFoldersByParent
+// Used in common.ts to set the paths of all children in a folder
 // returns all of the local files and folders that have the same parent folder id.
 export const getFilesAndFoldersByParentFolderFromSyncTable = (parentFolderId: string) => {
 	return all(`SELECT * FROM Sync WHERE isLocal = 1 AND parentFolderId = ?`, [parentFolderId]);
