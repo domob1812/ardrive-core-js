@@ -260,6 +260,11 @@ export const getFilesAndFoldersByParentFolderFromSyncTable = (parentFolderId: st
 	return all(`SELECT * FROM Sync WHERE isLocal = 1 AND parentFolderId = ?`, [parentFolderId]);
 };
 
+// YES
+// getDrivesToUpload, getPrivateDrivesToUpload
+// Used in bundles.ts and arweave.ts in order to get all of the most recently created drives in order to upload to Arweave.
+// It should be changed to use syncStatus = 1 indicating ready to upload
+// Returns all local Public/Private drives to be created in an array.
 export const getNewDrivesFromDriveTable = (login: string) => {
 	return all(`SELECT * FROM Drive WHERE login = ? AND metaDataTxId = '0'`, [login]);
 };
