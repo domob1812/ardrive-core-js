@@ -7,7 +7,7 @@ let db: loki | null;
 // DB SETUP FUNCTIONS //
 ////////////////////////
 // Main entrypoint for database. MUST call this before anything else can happen
-export const setupDatabase = async (dbName: string): Promise<Error | null> => {
+export const setupLoki = async (dbName: string): Promise<Error | null> => {
 	try {
 		db = new loki(dbName, {
 			autoload: true,
@@ -20,19 +20,21 @@ export const setupDatabase = async (dbName: string): Promise<Error | null> => {
 	}
 	return null;
 };
-
+enum Collections {
+	drives
+}
 // Sets up each table needed for ArDrive.  All file metadata is stored in the sync table.
 const createTablesInDB = () => {
-	if (db.getCollection('drives') != null) db.addCollection('drives', { indices: ['id'] });
+	if (db != null) if (db.getCollection('drives') != null) db.addCollection('drives', { indices: ['id'] });
 };
 
-export const drivesCollection = db.getCollection('drives');
-export const sync = db.getCollection('sync');
-
 export function saveDrivesToDB(drives: ArFSLocalDriveEntity[]) {
-	return drivesCollection.insert(drives);
+	return db?.getCollection(Collections.drives.toString()).insert(drives);
 }
 
 export function getDrivesFromDB(owner: string): ArFSLocalDriveEntity[] {
-	return drivesCollection.where((drive: ArFSLocalDriveEntity) => drive.owner == owner);
+	return (
+		db?.getCollection(Collections.drives.toString()).where((drive: ArFSLocalDriveEntity) => drive.owner == owner) ??
+		[]
+	);
 }

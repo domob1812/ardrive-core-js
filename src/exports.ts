@@ -3,6 +3,7 @@ export * from './db/db_common';
 export * from './db/db_delete';
 export * from './db/db_get';
 export * from './db/db_update';
+export * from './loki/loki_test';
 
 //Types
 export * from './types/arfs_Types';
