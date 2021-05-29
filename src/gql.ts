@@ -651,9 +651,9 @@ export async function getAllPublicDriveEntities(
 		const { data } = response.data;
 		const { transactions } = data;
 		const { edges } = transactions;
-
+		console.dir(edges);
 		// Iterate through each returned transaction and pull out the drive IDs
-		edges.array.forEach((edge: gqlTypes.GQLEdgeInterface) => {
+		edges.forEach((edge: gqlTypes.GQLEdgeInterface) => {
 			const { node } = edge;
 			const { tags } = node;
 			const drive: arfsTypes.ArFSDriveEntity = {

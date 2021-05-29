@@ -1,7 +1,7 @@
 import loki from 'lokijs';
 import { ArFSLocalDriveEntity } from '../types/client_Types';
 
-let db: loki | null;
+let db: loki;
 
 ////////////////////////
 // DB SETUP FUNCTIONS //
@@ -20,21 +20,19 @@ export const setupLoki = async (dbName: string): Promise<Error | null> => {
 	}
 	return null;
 };
-enum Collections {
-	drives
-}
+
 // Sets up each table needed for ArDrive.  All file metadata is stored in the sync table.
 const createTablesInDB = () => {
-	if (db != null) if (db.getCollection('drives') != null) db.addCollection('drives', { indices: ['id'] });
+	if (db.getCollection('drives') != null) db.addCollection('drives', { indices: ['id'] });
 };
 
 export function saveDrivesToDB(drives: ArFSLocalDriveEntity[]) {
-	return db?.getCollection(Collections.drives.toString()).insert(drives);
+	if (db.getCollection('drives') == null) {
+		db.addCollection('drives');
+	}
+	return db.getCollection('drives').insert(drives);
 }
 
 export function getDrivesFromDB(owner: string): ArFSLocalDriveEntity[] {
-	return (
-		db?.getCollection(Collections.drives.toString()).where((drive: ArFSLocalDriveEntity) => drive.owner == owner) ??
-		[]
-	);
+	return db.getCollection('drives').where((drive: ArFSLocalDriveEntity) => drive.owner == owner) ?? [];
 }
